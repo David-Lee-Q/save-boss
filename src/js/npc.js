@@ -453,8 +453,18 @@
     constructor(scene, def) {
       super(scene, 'robber', def.x, def.z, def.ry);
       this.room = def.room;
-      this.hp = 100;
+      const D = global.GAME && global.GAME.diff ? global.GAME.diff : { enemyHp: 100 };
+      this.maxHp = D.enemyHp || 100;
+      this.hp = this.maxHp;
       this.state = IDLE;
+      this.coverCd = U.rnd(1.2, 3.0);
+      this.coverT = 0;
+      this.coverPath = null;
+      this.coverI = 0;
+      this.flankCd = U.rnd(4, 8);
+      this.flankT = 0;
+      this.flankPath = null;
+      this.flankI = 0;
       this.path = null;
       this.pathI = 0;
       this.repathT = 0;
@@ -549,44 +559,83 @@
       this.moving = false;
 
       if (this.state === COMBAT) {
+        const D = G.diff || { react: 0.35, fireMul: 1 };
         this.alertT += dt;
         this.aimAmt = U.damp(this.aimAmt, 1, 6, dt);
-        const yawToPlayer = Math.atan2(px - this.pos.x, pz - this.pos.z);
-        this.ry = U.approachAngle(this.ry, yawToPlayer, 7, dt);
+        this.ry = U.approachAngle(this.ry, Math.atan2(px - this.pos.x, pz - this.pos.z), 7, dt);
 
-        // keep a standoff distance; strafe now and then
-        this.strafeT -= dt;
-        if (this.strafeT <= 0) { this.strafeT = U.rnd(0.9, 2.2); this.strafeDir *= -1; }
-        this.repathT -= dt;
-        if (this.repathT <= 0) {
-          this.repathT = 0.85 + Math.random() * 0.5;
-          const want = dist > 15 ? 1 : (dist < 5.5 ? -1 : 0);
-          let tx = px, tz = pz;
-          if (want !== 0) {
-            tx = this.pos.x + dx * 0.35 * want + (this.strafeDir * 3.4);
-            tz = this.pos.z + dz * 0.35 * want + (this.strafeDir * 2.6);
-            // pull the point back into free space
-            const n = LV.nav.nearestFree(tx, tz);
-            tx = n.x; tz = n.z;
-          } else {
-            const a = Math.atan2(dz, dx) + Math.PI / 2 * this.strafeDir;
-            tx = this.pos.x + Math.cos(a) * 2.6;
-            tz = this.pos.z + Math.sin(a) * 2.6;
-            const n = LV.nav.nearestFree(tx, tz);
-            tx = n.x; tz = n.z;
+        this.coverCd -= dt;
+        this.flankCd -= dt;
+
+        // --- cover: when hurt, break line of sight and hold for a beat
+        if (this.coverT <= 0 && this.coverCd <= 0 && this.hp < this.maxHp * 0.62) {
+          const c = this.chooseCover(px, pz);
+          if (c) {
+            const path = LV.nav.path(this.pos.x, this.pos.z, c.x, c.z, 1600);
+            if (path) {
+              this.coverPath = path; this.coverI = 0;
+              this.coverT = U.rnd(2.6, 4.4);
+              this.coverCd = U.rnd(7, 11);
+            }
           }
-          this.path = LV.nav.path(this.pos.x, this.pos.z, tx, tz);
-          this.pathI = 0;
         }
-        this.followPath(dt, speedBase * 0.82);
-        // face the player while moving
+        // --- flank: sidestep the player's cover once in a while
+        const teamFree = !G.flankUntil || G.time > G.flankUntil;
+        if (this.coverT <= 0 && this.flankT <= 0 && this.flankCd <= 0 && this.canSee && dist > 6 && teamFree) {
+          const f = this.chooseFlank(px, pz);
+          if (f) {
+            const path = LV.nav.path(this.pos.x, this.pos.z, f.x, f.z, 1800);
+            if (path) {
+              this.flankPath = path; this.flankI = 0;
+              this.flankT = U.rnd(2.0, 3.2);
+              this.flankCd = U.rnd(8, 13);
+              G.flankUntil = G.time + 4.2;   // only one flanker at a time: the rest suppress
+            }
+          }
+        }
+
+        if (this.coverT > 0) {
+          this.coverT -= dt;
+          this.followPathCustom(dt, 3.2, 'cover');
+          if (this.coverT <= 0) { this.coverPath = null; this.repathT = 0; }
+        } else if (this.flankT > 0) {
+          this.flankT -= dt;
+          this.followPathCustom(dt, 3.0, 'flank');
+          if (this.flankT <= 0) { this.flankPath = null; this.repathT = 0; }
+        } else {
+          // keep a standoff distance; strafe now and then
+          this.strafeT -= dt;
+          if (this.strafeT <= 0) { this.strafeT = U.rnd(0.9, 2.2); this.strafeDir *= -1; }
+          this.repathT -= dt;
+          if (this.repathT <= 0) {
+            this.repathT = 0.85 + Math.random() * 0.5;
+            const want = dist > 15 ? 1 : (dist < 5.5 ? -1 : 0);
+            let tx = px, tz = pz;
+            if (want !== 0) {
+              tx = this.pos.x + dx * 0.35 * want + (this.strafeDir * 3.4);
+              tz = this.pos.z + dz * 0.35 * want + (this.strafeDir * 2.6);
+              const n = LV.nav.nearestFree(tx, tz);
+              tx = n.x; tz = n.z;
+            } else {
+              const a = Math.atan2(dz, dx) + Math.PI / 2 * this.strafeDir;
+              tx = this.pos.x + Math.cos(a) * 2.6;
+              tz = this.pos.z + Math.sin(a) * 2.6;
+              const n = LV.nav.nearestFree(tx, tz);
+              tx = n.x; tz = n.z;
+            }
+            this.path = LV.nav.path(this.pos.x, this.pos.z, tx, tz);
+            this.pathI = 0;
+          }
+          this.followPath(dt, speedBase * 0.82);
+        }
+        // always face the player
         this.ry = U.approachAngle(this.ry, Math.atan2(px - this.pos.x, pz - this.pos.z), 6, dt);
 
-        // shooting
+        // shooting (cover still allows snap shots if the player comes around)
         this.fireT -= dt;
-        if (this.fireT <= 0 && this.canSee && p.alive && this.alertT > 0.35) {
+        if (this.fireT <= 0 && this.canSee && p.alive && this.alertT > D.react) {
           this.fire(G, dist);
-          this.fireT = this.burst > 0 ? U.rnd(0.12, 0.2) : U.rnd(1.15, 2.2);
+          this.fireT = (this.burst > 0 ? U.rnd(0.12, 0.2) : U.rnd(1.15, 2.2)) * (D.fireMul || 1);
         }
       } else if (this.state === ALERT) {
         this.alertT += dt;
@@ -637,6 +686,51 @@
       return (dx / len) * fx + (dz / len) * fz > halfFovCos;
     }
 
+    chooseCover(px, pz) {
+      let best = null, bestScore = -1e9;
+      for (const c of LV.colliders) {
+        if (c.y1 < 1.0 || c.y0 > 1.6) continue;
+        const cx = (c.x1 + c.x2) / 2, cz = (c.z1 + c.z2) / 2;
+        const d0 = Math.hypot(cx - this.pos.x, cz - this.pos.z);
+        if (d0 > 10 || d0 < 0.8) continue;
+        const off = 1.05;
+        const pts = [[c.x1 - off, cz], [c.x2 + off, cz], [cx, c.z1 - off], [cx, c.z2 + off]];
+        for (let p of pts) {
+          p = LV.nav.nearestFree(p[0], p[1]);
+          const x = p.x, z = p.z;
+          if (Phys.los(px, 1.45, pz, x, 1.0, z)) continue;
+          const score = -Math.hypot(x - this.pos.x, z - this.pos.z) + Math.hypot(x - px, z - pz) * 0.22;
+          if (score > bestScore) { bestScore = score; best = { x, z }; }
+        }
+      }
+      return best;
+    }
+
+    chooseFlank(px, pz) {
+      const a = Math.atan2(pz - this.pos.z, px - this.pos.x);
+      const side = Math.random() < 0.5 ? 1 : -1;
+      for (let k = 0; k < 4; k++) {
+        const ang = a + side * (Math.PI / 2 + k * 0.22);
+        const r = 6 + Math.random() * 3;
+        const x = px + Math.cos(ang) * r, z = pz + Math.sin(ang) * r;
+        if (LV.nav.free(x, z)) return { x, z };
+      }
+      return null;
+    }
+
+    followPathCustom(dt, speed, which) {
+      const path = which === 'cover' ? this.coverPath : this.flankPath;
+      const key = which === 'cover' ? 'coverI' : 'flankI';
+      if (!path || this[key] >= path.length) return;
+      const wp = path[this[key]];
+      const dx = wp.x - this.pos.x, dz = wp.z - this.pos.z;
+      const d = Math.hypot(dx, dz);
+      if (d < 0.45) { this[key]++; return; }
+      const s = Math.min(speed * dt, d);
+      Phys.move(this.pos, (dx / (d || 1)) * s, (dz / (d || 1)) * s, this.radius);
+      this.moving = true;
+    }
+
     followPath(dt, speed) {
       if (!this.path || this.pathI >= this.path.length) return;
       const wp = this.path[this.pathI];
@@ -662,10 +756,11 @@
       this.muzzleWorld(muzzle);
       SFX.enemyShot(dist, U.clamp((this.pos.x - p.pos.x) / 20, -0.8, 0.8));
       // aim error: harder the further away and the faster the player moves
+      const D = G.diff || { acc: 0.66, enemyDmg: 1 };
       const moving = Math.min(1, Math.hypot(p.vel.x, p.vel.z) / 6);
-      let acc = 0.66 - dist * 0.019 - moving * 0.26 - (this.aimAmt > 0.9 ? 0 : 0.15);
+      let acc = (D.acc || 0.66) - dist * 0.019 - moving * 0.26 - (this.aimAmt > 0.9 ? 0 : 0.15);
       if (p.crouch) acc -= 0.06;
-      acc = U.clamp(acc, 0.08, 0.62);
+      acc = U.clamp(acc, 0.06, 0.72);
       const hit = Math.random() < acc;
       const target = new THREE.Vector3(p.pos.x, p.pos.y + (hit ? U.rnd(1.1, 1.55) : U.rnd(0.4, 1.9)), p.pos.z);
       if (!hit) {
@@ -683,7 +778,7 @@
         }
       }
       if (hit) {
-        G.damagePlayer(U.rnd(4.5, 8), this.pos.x, this.pos.z);
+        G.damagePlayer(U.rnd(4.5, 8) * (D.enemyDmg || 1), this.pos.x, this.pos.z);
       } else {
         G.suppress(this.pos.x, this.pos.z);
       }

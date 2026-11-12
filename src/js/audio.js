@@ -241,6 +241,22 @@
       if (on) this.tone(680, 0.9, 'sine', 0.035, 940);
     }
 
+    explosion() {
+      if (!this.ready) return;
+      const ctx = this.ctx;
+      this.noiseSrc(0.9, (s, g) => {
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(1800, ctx.currentTime);
+        lp.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.8);
+        s.connect(lp); lp.connect(g);
+        this.env(g, 0.8, 0.004, 0.85);
+      });
+      this.tone(56, 0.7, 'sine', 0.55, 26);
+      this.tone(92, 0.4, 'triangle', 0.3, 40, 0.02);
+      this.tone(2400, 0.08, 'square', 0.06, 600, 0.01);
+    }
+
     win() {
       const notes = [392, 523, 659, 784];
       notes.forEach((f, i) => this.tone(f, 0.7, 'sine', 0.10, f * 1.005, i * 0.14));

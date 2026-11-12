@@ -172,7 +172,7 @@
     const B = new Batch();
     const cols = LV.colliders;
 
-    scene.fog = new THREE.FogExp2(0x0b1116, 0.0075);
+    scene.fog = new THREE.FogExp2(0xcfe3f1, 0.0011);
 
     /* ---------- helpers ---------- */
     function collider(x1, z1, x2, z2, y0, y1) {
@@ -908,42 +908,56 @@
       collider(x - 0.62, 19.9, x + 0.62, 20.9, 0, 2.2);
     }
 
-    /* ---- city view ---- */
-    const cityTex = TEX.city(7);
-    cityTex.wrapS = THREE.RepeatWrapping;
-    cityTex.repeat.set(3, 1);
-    const city = new THREE.Mesh(
-      new THREE.CylinderGeometry(150, 150, 120, 48, 1, true),
-      new THREE.MeshBasicMaterial({ map: cityTex, side: THREE.BackSide, fog: false, toneMapped: true })
+    /* ---- daytime view: sea, coastline and mountains ---- */
+    const panoTex = TEX.seaPanorama(23);
+    panoTex.wrapS = THREE.RepeatWrapping;
+    const pano = new THREE.Mesh(
+      new THREE.CylinderGeometry(260, 260, 210, 64, 1, true),
+      new THREE.MeshBasicMaterial({ map: panoTex, side: THREE.BackSide, fog: false, toneMapped: true })
     );
-    city.position.y = 34;
-    city.rotation.y = 0.7;
-    scene.add(city);
+    pano.position.y = 40;
+    pano.rotation.y = -0.6;
+    scene.add(pano);
 
+    // sky dome above the panorama
+    const skyCv = document.createElement('canvas');
+    skyCv.width = 4; skyCv.height = 256;
+    const sx2 = skyCv.getContext('2d');
+    const skyGrad = sx2.createLinearGradient(0, 0, 0, 256);
+    skyGrad.addColorStop(0, '#2c6cab');
+    skyGrad.addColorStop(0.55, '#7fb4da');
+    skyGrad.addColorStop(1, '#e6f2f8');
+    sx2.fillStyle = skyGrad; sx2.fillRect(0, 0, 4, 256);
+    const skyTex = new THREE.CanvasTexture(skyCv);
+    skyTex.colorSpace = THREE.SRGBColorSpace;
     const sky = new THREE.Mesh(
-      new THREE.SphereGeometry(260, 24, 16),
-      new THREE.MeshBasicMaterial({ color: 0x070b12, side: THREE.BackSide, fog: false })
+      new THREE.SphereGeometry(420, 32, 18),
+      new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false })
     );
     scene.add(sky);
 
-    // ground far below (so looking down through glass reads as height)
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({ color: 0x080c11, fog: false }));
-    ground.rotation.x = -Math.PI / 2; ground.position.y = -42;
-    scene.add(ground);
-    // distant traffic light dots
-    const dotGeo = new THREE.BufferGeometry();
-    const N = 420, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
-    const rl = TEX.noise();
-    for (let i = 0; i < N; i++) {
-      const a = Math.random() * 6.283, r = 60 + Math.random() * 90;
-      pos[i * 3] = Math.cos(a) * r; pos[i * 3 + 1] = -30 + Math.random() * 8; pos[i * 3 + 2] = Math.sin(a) * r;
-      const warm = Math.random() < 0.75;
-      col[i * 3] = warm ? 1 : 0.7; col[i * 3 + 1] = warm ? 0.72 : 0.85; col[i * 3 + 2] = warm ? 0.42 : 1;
-    }
-    dotGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    dotGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const dots = new THREE.Points(dotGeo, new THREE.PointsMaterial({ size: 1.6, vertexColors: true, transparent: true, opacity: 0.75, fog: false, sizeAttenuation: true, depthWrite: false }));
-    scene.add(dots);
+    // ocean far below (the floor is 42 storeys up)
+    const sea = new THREE.Mesh(
+      new THREE.PlaneGeometry(900, 900),
+      new THREE.MeshBasicMaterial({ color: 0x2c6d8b, fog: false })
+    );
+    sea.rotation.x = -Math.PI / 2;
+    sea.position.y = -58;
+    scene.add(sea);
+
+    // gulls drifting past the glass, purely for scale
+    (function () {
+      const N = 14, g = new THREE.BufferGeometry();
+      const p = new Float32Array(N * 3);
+      for (let i = 0; i < N; i++) {
+        const a = U.rnd(0, 6.283), r = U.rnd(90, 180);
+        p[i * 3] = Math.cos(a) * r; p[i * 3 + 1] = U.rnd(18, 46); p[i * 3 + 2] = Math.sin(a) * r;
+      }
+      g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+      const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xf6fbff, size: 1.2, transparent: true, opacity: 0.75, fog: false, depthWrite: false }));
+      scene.add(pts);
+      LV.gulls = pts;
+    })();
 
     /* ---- dust motes in the shafts ---- */
     (function () {

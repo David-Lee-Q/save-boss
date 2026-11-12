@@ -96,10 +96,10 @@
       this.enabled = true;
       this.bloom = true;
       this.scale = 1;
-      this.grade = 0.12;
-      this.grain = 0.022;
-      this.vig = 0.5;
-      this.exposure = 1.05;
+      this.grade = 0.10;
+      this.grain = 0.018;
+      this.vig = 0.34;
+      this.exposure = 1.0;
       this.hurt = 0;
 
       this.scene = new THREE.Scene();

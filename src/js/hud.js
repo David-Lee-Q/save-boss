@@ -17,6 +17,7 @@
       feed: $('feed'), msg: $('msg'),
       health: $('health'), hpN: $('hpN'), hpBar: $('hpBar'),
       ammo: $('ammo'), ammoN: $('ammoN'), ammoR: $('ammoR'), pips: $('pips'), cue: $('cue'),
+      wname: $('wname'), nadeN: $('nadeN'), nadeRow: $('nadeRow'),
       marks: $('marks'),
       comms: $('comms'), commsWho: $('commsWho'), commsText: $('commsText'),
       loc: $('loc'), locT: $('locT'), locS: $('locS'),
@@ -87,11 +88,25 @@
     H.hpSegs = [...H.el.hpBar.children];
   };
 
-  H.buildPips = function () {
+  H.buildPips = function (n) {
     let h = '';
-    for (let i = 0; i < WPN.mag; i++) h += '<i></i>';
+    for (let i = 0; i < (n || 30); i++) h += '<i></i>';
     H.el.pips.innerHTML = h;
     H.pipEls = [...H.el.pips.children];
+    H.pipCount = (n || 30);
+  };
+
+  H.setWeapon = function (w) {
+    if (!w || !w.def || !H.el || !H.el.pips) return;
+    if (H.pipCount !== w.def.mag) H.buildPips(w.def.mag);
+    H.el.wname.textContent = w.def.name;
+    H.el.ammo.classList.toggle('low', w.mag <= Math.max(3, Math.round(w.def.mag * 0.27)));
+  };
+
+  H.setNades = function (n) {
+    if (!H.el || !H.el.nadeN) return;
+    H.el.nadeN.textContent = n;
+    H.el.nadeRow.classList.toggle('empty', n <= 0);
   };
 
   H.buildRooms = function () {
@@ -154,11 +169,12 @@
 
     // --- health
     const hp = Math.max(0, Math.round(p.hp));
-    H.el.health.classList.toggle('on', hp < 100 || G.hurtPulse > 0.05);
+    const maxHp = p.maxHp || 100;
+    H.el.health.classList.toggle('on', hp < maxHp || G.hurtPulse > 0.05);
     H.el.hpN.textContent = hp;
-    const segs = Math.ceil(hp / 10);
+    const segs = Math.ceil((hp / maxHp) * H.hpSegs.length);
     H.hpSegs.forEach((s, i) => s.classList.toggle('off', i >= segs));
-    H.el.health.classList.toggle('crit', hp <= 30 && hp > 0);
+    H.el.health.classList.toggle('crit', hp <= maxHp * 0.3 && hp > 0);
 
     // --- hurt vignette
     H.hurtT = Math.max(0, H.hurtT - dt);
@@ -168,8 +184,13 @@
     const w = G.weapon;
     H.el.ammoN.textContent = w.mag;
     H.el.ammoR.textContent = w.reserve;
-    H.el.ammo.classList.toggle('low', w.mag <= 8);
+    H.el.ammo.classList.toggle('low', w.mag <= Math.max(3, Math.round(w.def.mag * 0.27)));
     for (let i = 0; i < H.pipEls.length; i++) H.pipEls[i].classList.toggle('off', i >= w.mag);
+    H.el.wname.textContent = w.def.name;
+    if (H.el.nadeN) {
+      H.el.nadeN.textContent = G.nades;
+      H.el.nadeRow.classList.toggle('empty', G.nades <= 0);
+    }
     let cue = '';
     if (w.state === 'reloading') cue = '换弹中';
     else if (w.mag === 0) cue = '弹匣已空 · 按 R';

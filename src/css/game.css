@@ -93,3 +93,22 @@
   .h-rooms { display: none; }
   .m-brand { display: none; }
 }
+
+/* ---- weapon slots / grenades / extra touch buttons ---- */
+.h-nades { font: 500 11px/1 var(--f-mono); letter-spacing: .12em; color: var(--bone-dim); margin-top: 7px; display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.h-nades b { font-weight: 700; font-size: 15px; color: var(--bone); letter-spacing: 0; }
+.h-nades .k { border: 1px solid rgba(232,228,218,.3); padding: 1px 3px 0; font-size: 9px; color: var(--bone-faint); }
+.h-nades.empty b { color: var(--alarm); }
+.is-touch .h-nades { margin-top: 5px; }
+.t-swap { width: 54px; height: 54px; right: calc(174px + var(--sar)); bottom: calc(30px + var(--sab)); font-size: 11px; }
+.t-nade { width: 54px; height: 54px; right: calc(174px + var(--sar)); bottom: calc(96px + var(--sab)); font-size: 11px; border-color: var(--signal); color: var(--signal); }
+
+
+/* ---- difficulty selector ---- */
+.m-diff { display: flex; align-items: center; gap: 0; margin-top: clamp(14px, 2.6vh, 22px); max-width: 360px; border: 1px solid rgba(232,228,218,.28); }
+.m-diff-k { font: 600 11px/1 var(--f-label); letter-spacing: .2em; color: var(--steel); padding: 0 12px; text-transform: uppercase; }
+.m-diff button { flex: 1 1 0; min-height: 40px; background: transparent; border: 0; border-left: 1px solid rgba(232,228,218,.22); color: var(--bone-dim);
+  font: 600 13px/1 var(--f-label); letter-spacing: .18em; cursor: pointer; padding: 1px 0 0; }
+.m-diff button:hover { color: var(--bone); background: rgba(232,228,218,.07); }
+.m-diff button[aria-pressed="true"] { background: var(--signal); color: var(--ink); }
+@media (max-width: 760px) { .m-diff { max-width: none; } .m-diff-k { display: none; } }

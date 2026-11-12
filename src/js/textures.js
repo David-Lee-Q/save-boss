@@ -346,6 +346,124 @@
     });
   };
 
+
+  /* ---------------------------------------------------------------- daytime sea + mountains */
+  T.seaPanorama = function (seed) {
+    const rng = U.rng(seed || 23);
+    const W = 4096, H = 1024;
+    return mk(W, H, (x, w, h) => {
+      const horizon = h * 0.56;
+
+      // sky: deep blue overhead -> pale haze at the horizon
+      const sky = x.createLinearGradient(0, 0, 0, horizon);
+      sky.addColorStop(0, '#2f6fae');
+      sky.addColorStop(0.42, '#6fa9d4');
+      sky.addColorStop(0.76, '#b9dcf0');
+      sky.addColorStop(1, '#e4f1f7');
+      x.fillStyle = sky; x.fillRect(0, 0, w, horizon + 2);
+
+      // sun + glow (kept away from the wrap seam)
+      const sx = w * 0.63, sy = h * 0.30;
+      const glow = x.createRadialGradient(sx, sy, 0, sx, sy, w * 0.20);
+      glow.addColorStop(0, 'rgba(255,252,238,.95)');
+      glow.addColorStop(0.10, 'rgba(255,248,224,.55)');
+      glow.addColorStop(0.35, 'rgba(255,242,210,.16)');
+      glow.addColorStop(1, 'rgba(255,242,210,0)');
+      x.fillStyle = glow; x.fillRect(0, 0, w, horizon);
+      x.fillStyle = 'rgba(255,255,248,.95)';
+      x.beginPath(); x.arc(sx, sy, 26, 0, 6.2832); x.fill();
+
+      // soft cumulus, periodic in x so the wrap is seamless
+      for (let i = 0; i < 70; i++) {
+        const cx = (i / 70) * w + rng() * 40;
+        const cy = h * 0.08 + rng() * h * 0.30;
+        const rw = 60 + rng() * 260, rh = 14 + rng() * 54;
+        for (let k = 0; k < 4; k++) {
+          const ox = (rng() - 0.5) * rw, oy = (rng() - 0.5) * rh * 0.7;
+          const r2 = rw * (0.35 + rng() * 0.4);
+          const g2 = x.createRadialGradient(cx + ox, cy + oy, 0, cx + ox, cy + oy, r2);
+          g2.addColorStop(0, 'rgba(255,255,255,.42)');
+          g2.addColorStop(0.55, 'rgba(255,255,255,.18)');
+          g2.addColorStop(1, 'rgba(255,255,255,0)');
+          x.fillStyle = g2;
+          x.save(); x.translate(cx + ox, cy + oy); x.scale(1, rh / rw); x.translate(-(cx + ox), -(cy + oy));
+          x.beginPath(); x.arc(cx + ox, cy + oy, r2, 0, 6.2832); x.fill(); x.restore();
+        }
+      }
+
+      // distant mountain ranges (three layers, periodic sines => seamless)
+      const ranges = [
+        { base: horizon + 2, amp: 78, col: '#8aa7bd', k: [3, 7, 13], a: [1, .45, .2], snow: 0.0 },
+        { base: horizon + 8, amp: 52, col: '#6f8ea8', k: [5, 11, 19], a: [1, .5, .25], snow: 0.0 },
+        { base: horizon + 14, amp: 30, col: '#557691', k: [7, 17], a: [1, .4], snow: 0.0 }
+      ];
+      ranges.forEach((r, li) => {
+        x.beginPath(); x.moveTo(0, r.base + 20);
+        const ph = [rng() * 6.28, rng() * 6.28, rng() * 6.28];
+        for (let px = 0; px <= w; px += 4) {
+          let y = 0;
+          for (let i = 0; i < r.k.length; i++) {
+            y += Math.sin((px / w) * Math.PI * 2 * r.k[i] + ph[i]) * r.a[i];
+          }
+          const jag = Math.sin((px / w) * Math.PI * 2 * 41 + ph[0]) * 0.12;
+          y = r.base - (y + jag) * r.amp;
+          x.lineTo(px, y + Math.sin((px / w) * Math.PI * 2 * 23) * 6);
+        }
+        x.lineTo(w, horizon + 30); x.lineTo(0, horizon + 30); x.closePath();
+        x.fillStyle = r.col; x.globalAlpha = 0.92 - li * 0.08; x.fill(); x.globalAlpha = 1;
+      });
+
+      // sea
+      const sea = x.createLinearGradient(0, horizon, 0, h);
+      sea.addColorStop(0, '#8fb7c9');
+      sea.addColorStop(0.10, '#4f8ea8');
+      sea.addColorStop(0.45, '#2f708d');
+      sea.addColorStop(1, '#1c4d69');
+      x.fillStyle = sea; x.fillRect(0, horizon, w, h - horizon);
+
+      // horizon haze band
+      const hz = x.createLinearGradient(0, horizon - 14, 0, horizon + 26);
+      hz.addColorStop(0, 'rgba(255,255,255,0)');
+      hz.addColorStop(0.5, 'rgba(235,246,252,.65)');
+      hz.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = hz; x.fillRect(0, horizon - 14, w, 40);
+
+      // sun glitter path
+      const gl = x.createLinearGradient(0, horizon, 0, h);
+      gl.addColorStop(0, 'rgba(255,250,225,.55)');
+      gl.addColorStop(0.5, 'rgba(255,248,220,.14)');
+      gl.addColorStop(1, 'rgba(255,248,220,0)');
+      x.save();
+      x.beginPath(); x.moveTo(sx - 40, horizon); x.lineTo(sx + 40, horizon);
+      x.lineTo(sx + 340, h); x.lineTo(sx - 340, h); x.closePath();
+      x.fillStyle = gl; x.fill();
+      x.restore();
+
+      // wave streaks, thinner with distance
+      for (let i = 0; i < 2600; i++) {
+        const t = Math.pow(rng(), 0.55);          // more near the bottom
+        const py = horizon + 8 + t * (h - horizon - 10);
+        const len = 8 + t * 120 + rng() * 90;
+        const px = rng() * w;
+        const a = (0.05 + rng() * 0.18) * (0.35 + t * 0.8);
+        x.strokeStyle = `rgba(255,255,255,${a})`;
+        x.lineWidth = 1 + t * 2.2;
+        x.beginPath(); x.moveTo(px, py); x.lineTo(px + len, py + (rng() - 0.5) * 2); x.stroke();
+      }
+      // a few sailboats for scale
+      for (let i = 0; i < 7; i++) {
+        const px = rng() * w, py = horizon + 12 + rng() * (h - horizon) * 0.22;
+        const s = 0.5 + rng() * 0.8;
+        x.fillStyle = 'rgba(250,252,255,.85)';
+        x.beginPath(); x.moveTo(px, py - 14 * s); x.lineTo(px + 10 * s, py); x.lineTo(px - 2 * s, py); x.closePath(); x.fill();
+        x.fillStyle = 'rgba(30,50,64,.45)';
+        x.fillRect(px - 6 * s, py, 16 * s, 2.4 * s);
+      }
+
+      grain(x, w, h, 6);
+    });
+  };
+
   /* ---------------------------------------------------------------- city at night */
   T.city = function (seed) {
     const rng = U.rng(seed || 11);
@@ -552,34 +670,31 @@
     return t;
   };
 
-  /* equirect environment: dark room with warm strips and cold windows */
+  /* equirect environment: bright daylight sky, sea horizon, warm interior bounce */
   T.envEquirect = function () {
     const W = 1024, H = 512;
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     const x = cv.getContext('2d');
     const g = x.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#0a0d11');
-    g.addColorStop(0.45, '#1a222b');
-    g.addColorStop(0.52, '#2c3946');
-    g.addColorStop(0.62, '#12171d');
-    g.addColorStop(1, '#07090c');
+    g.addColorStop(0, '#2f6fae');
+    g.addColorStop(0.34, '#8fc2e2');
+    g.addColorStop(0.48, '#e8f4fb');
+    g.addColorStop(0.52, '#b9d8e8');
+    g.addColorStop(0.70, '#4f8ea8');
+    g.addColorStop(1, '#2c6d8b');
     x.fillStyle = g; x.fillRect(0, 0, W, H);
-    // window band (cool)
-    for (let i = 0; i < 9; i++) {
-      x.fillStyle = 'rgba(120,170,235,.55)';
-      x.fillRect(i * 118 + 14, 150, 88, 96);
-      x.fillStyle = 'rgba(20,26,34,.9)';
-      x.fillRect(i * 118 + 58, 150, 5, 96);
+    // sun
+    const sg = x.createRadialGradient(640, 120, 0, 640, 120, 150);
+    sg.addColorStop(0, 'rgba(255,252,236,.95)');
+    sg.addColorStop(0.25, 'rgba(255,246,214,.45)');
+    sg.addColorStop(1, 'rgba(255,246,214,0)');
+    x.fillStyle = sg; x.fillRect(0, 0, W, 320);
+    // interior light strips (kept subtle; they mostly feed reflections)
+    for (let i = 0; i < 12; i++) {
+      x.fillStyle = 'rgba(255,236,204,.35)';
+      x.fillRect(i * 86 + 20, 58, 46, 7);
     }
-    // warm ceiling strips
-    for (let i = 0; i < 14; i++) {
-      x.fillStyle = 'rgba(255,190,120,.85)';
-      x.fillRect(i * 74 + 8, 48, 54, 8);
-    }
-    // floor bounce
-    x.fillStyle = 'rgba(90,72,52,.18)';
-    x.fillRect(0, 400, W, 112);
     const t = new THREE.CanvasTexture(cv);
     t.mapping = THREE.EquirectangularReflectionMapping;
     t.colorSpace = THREE.SRGBColorSpace;

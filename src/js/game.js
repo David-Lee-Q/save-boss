@@ -21,7 +21,11 @@
     interactT: 0,
     hurtPulse: 0,
     playerRoom: null,
-    ended: false
+    ended: false,
+    nades: 3,
+    drops: [],
+    checkpoint: null,
+    shake: 0
   };
   global.GAME = G;
 
@@ -55,14 +59,20 @@
   // face north (-Z) at spawn
   player.yaw = 0;
 
+  const DIFFS = {
+    easy:   { key: 'easy', name: '轻松', enemyDmg: 0.62, acc: 0.52, react: 0.55, hp: 130, nades: 4, enemyHp: 85, fireMul: 1.28 },
+    normal: { key: 'normal', name: '标准', enemyDmg: 1.0, acc: 0.66, react: 0.35, hp: 100, nades: 3, enemyHp: 100, fireMul: 1.0 },
+    hard:   { key: 'hard', name: '硬核', enemyDmg: 1.35, acc: 0.78, react: 0.22, hp: 85, nades: 2, enemyHp: 115, fireMul: 0.82 }
+  };
   const settings = {
     quality: 'high',
     sens: 1.0,
     invert: false,
     volume: 0.8,
     fov: 82,
-    adsFov: 52
+    difficulty: 'normal'
   };
+  G.diff = DIFFS.normal;
 
   /* ============================================================== input */
   const input = {
@@ -158,30 +168,43 @@
     }, 320);
   }
 
-  function spawnActors() {
+  function spawnActors(cp) {
     robbers = [];
     G.roomState = {};
     for (const r of LV.rooms) G.roomState[r.id] = { total: 0, killed: 0, cleared: false, discovered: r.id === 'lobby' };
 
-    for (const def of LV.actors.robbers) {
+    const totalByRoom = {};
+    for (const def of LV.actors.robbers) totalByRoom[def.room] = (totalByRoom[def.room] || 0) + 1;
+
+    LV.actors.robbers.forEach((def, i) => {
+      if (G.roomState[def.room]) G.roomState[def.room].total++;
+      LV.rooms.find((x) => x.id === def.room).total++;
+      if (cp && cp.dead[i]) {
+        G.roomState[def.room].killed++;
+        return;
+      }
       const r = new Robber(scene, def);
+      r.defIndex = i;
       scene.add(r.rig.root);
       robbers.push(r);
-      if (G.roomState[def.room]) {
-        G.roomState[def.room].total++;
-        LV.rooms.find((x) => x.id === def.room).total++;
-      }
+    });
+    for (const id in G.roomState) {
+      const st = G.roomState[id];
+      st.cleared = st.total > 0 && st.killed >= st.total;
+      if (cp && (cp.seen || {})[id]) st.discovered = true;
     }
-    G.robbersTotal = robbers.length;
+    G.robbersTotal = LV.actors.robbers.length;
     G.robbersLeft = robbers.length;
 
     hostages = [];
-    for (const h of LV.actors.hostages) {
+    G.hostagesFreed = 0;
+    LV.actors.hostages.forEach((h, i) => {
+      if (cp && cp.freed[i]) { G.hostagesFreed++; return; }
       const c = new Character(scene, 'hostage', h.x, h.z, h.ry);
       c.name = h.name; c.role = h.role; c.freed = false; c.room = h.room;
       scene.add(c.rig.root);
       hostages.push(c);
-    }
+    });
 
     const b = LV.actors.boss;
     boss = new Character(scene, 'boss', b.x, b.z, b.ry);
@@ -230,6 +253,7 @@
     G.robbers = robbers;
     G.hostages = hostages;
     G.boss = boss;
+    G.drops = [];
   }
 
   /* ============================================================== input bind */
@@ -246,6 +270,10 @@
       if (k === 'Space') { input.jump = true; e.preventDefault(); }
       if (k === 'KeyF') melee();
       if (k === 'KeyM') toggleMute();
+      if (k === 'KeyQ') swapWeapon();
+      if (k === 'Digit1') equipSlot(0);
+      if (k === 'Digit2') equipSlot(1);
+      if (k === 'KeyG') throwGrenade();
     });
     document.addEventListener('keyup', (e) => { keys[e.code] = false; });
     window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -253,15 +281,15 @@
     canvas.addEventListener('mousedown', (e) => {
       SFX.init(); SFX.resume();
       if (!G.running) return;
-      if (e.button === 0) input.fire = true;
-      if (e.button === 2) input.ads = true;
+      if (e.button === 0) input.fireMouse = true;
+      if (e.button === 2) input.adsMouse = true;
       if (!input.pointerLocked && canvas.requestPointerLock) {
         try { canvas.requestPointerLock(); } catch (err) { }
       }
     });
     window.addEventListener('mouseup', (e) => {
-      if (e.button === 0) input.fire = false;
-      if (e.button === 2) input.ads = false;
+      if (e.button === 0) input.fireMouse = false;
+      if (e.button === 2) input.adsMouse = false;
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -363,19 +391,21 @@
       const on = (e) => {
         e.preventDefault();
         btn.classList.add('active');
-        if (act === 'fire') input.fire = true;
-        if (act === 'ads') input.ads = !input.ads;
+        if (act === 'fire') input.touchFire = true;
+        if (act === 'ads') input.adsTouch = !input.adsTouch;
         if (act === 'jump') input.jump = true;
         if (act === 'reload') weapon.startReload();
         if (act === 'interact') input.interact = true;
+        if (act === 'swap') swapWeapon();
+        if (act === 'nade') throwGrenade();
         if (act === 'pause') { if (G.running) pauseGame(); }
       };
       const off = (e) => {
         e && e.preventDefault();
         btn.classList.remove('active');
-        if (act === 'fire') input.fire = false;
+        if (act === 'fire') input.touchFire = false;
         if (act === 'interact') input.interact = false;
-        if (act === 'ads') btn.classList.toggle('active', input.ads);
+        if (act === 'ads') btn.classList.toggle('active', input.adsTouch);
       };
       btn.addEventListener('touchstart', on, { passive: false });
       btn.addEventListener('touchend', off);
@@ -384,6 +414,51 @@
       btn.addEventListener('mouseup', off);
       btn.addEventListener('mouseleave', off);
     });
+  }
+
+  /* ============================================================== gamepad */
+  let gpPrev = [];
+  function pollGamepad(dt) {
+    const list = navigator.getGamepads ? navigator.getGamepads() : null;
+    let gp = null;
+    if (list) for (const p of list) { if (p && p.connected) { gp = p; break; } }
+    if (!gp) {
+      if (G.padActive) {
+        G.padActive = false;
+        input.move.x = 0; input.move.z = 0;
+        input.padFire = false; input.padAds = false;
+      }
+      return;
+    }
+    if (!G.padActive) {
+      G.padActive = true;
+      HUD.msg('手柄已连接 · RT 开火 / LT 瞄准 / LB 换枪 / RB 手雷', 3.2);
+    }
+    const b = (i) => !!(gp.buttons[i] && gp.buttons[i].pressed);
+    const edge = (i) => b(i) && !gpPrev[i];
+
+    const dz = 0.18;
+    const ax = gp.axes || [];
+    let mx = ax[0] || 0, mz = ax[1] || 0;
+    if (Math.abs(mx) < dz) mx = 0;
+    if (Math.abs(mz) < dz) mz = 0;
+    input.move.x = mx; input.move.z = mz;
+
+    let rx = ax[2] || 0, ry = ax[3] || 0;
+    if (Math.abs(rx) < 0.14) rx = 0;
+    if (Math.abs(ry) < 0.14) ry = 0;
+    if (rx || ry) applyLook(rx * dt * 1500, ry * dt * 1500);
+
+    input.padFire = b(7);
+    input.padAds = b(6);
+    if (edge(4)) swapWeapon();
+    if (edge(5)) throwGrenade();
+    if (edge(2)) weapon.startReload();
+    if (edge(0)) input.jump = true;
+    if (edge(1)) input.crouchPad = !input.crouchPad;
+    if (edge(9)) pauseGame();
+    input.interact = b(3);
+    gpPrev = gp.buttons.map((x) => x.pressed);
   }
 
   /* ============================================================== resize */
@@ -403,9 +478,15 @@
   /* ============================================================== player update */
   const PLAYER_R = 0.34;
 
+  function refreshInput() {
+    input.fire = !!(input.fireMouse || input.touchFire || input.padFire);
+    input.ads = !!(input.adsMouse || input.adsTouch || input.padAds);
+    if (player.sprinting) input.ads = false;
+  }
+
   function updatePlayer(dt) {
     // grounded/crouch
-    player.crouch = !!(keys.KeyC || keys.ControlLeft || keys.ControlRight || input.crouchTouch);
+    player.crouch = !!(keys.KeyC || keys.ControlLeft || keys.ControlRight || input.crouchTouch || input.crouchPad);
     const wantSprint = !!(keys.ShiftLeft || keys.ShiftRight);
     const canSprint = !input.ads && !player.crouch;
     player.sprinting = wantSprint && canSprint && (input.move.x || input.move.z);
@@ -456,7 +537,6 @@
 
     input.moving = speedNow > 0.5;
     input.sprint = player.sprinting;
-    input.ads = input.ads && !player.sprinting;
 
     // head bob + footsteps
     const eyeTarget = player.crouch ? 1.06 : 1.63;
@@ -482,9 +562,16 @@
     // slight roll while strafing
     const rollTarget = -(input.move.x) * 0.018 - (keys.KeyD ? 0.02 : 0) + (keys.KeyA ? 0.02 : 0);
     camera.rotation.z = U.damp(camera.rotation.z, rollTarget, 6, dt);
+    if (G.shake > 0) {
+      G.shake = Math.max(0, G.shake - dt * 1.5);
+      const k = G.shake * 0.05;
+      camera.position.x += (Math.random() - 0.5) * k;
+      camera.position.y += (Math.random() - 0.5) * k;
+      camera.rotation.z += (Math.random() - 0.5) * k * 0.4;
+    }
 
     // fov: sprint widen + ADS zoom
-    const fovTarget = U.lerp(settings.fov + (player.sprinting ? 5 : 0), WPN.adsFov, weapon.ads);
+    const fovTarget = U.lerp(settings.fov + (player.sprinting ? 5 : 0), weapon.def.adsFov, weapon.ads);
     if (Math.abs(camera.fov - fovTarget) > 0.01) {
       camera.fov = U.damp(camera.fov, fovTarget, 16, dt);
       camera.updateProjectionMatrix();
@@ -556,7 +643,7 @@
     if (best && best.actor) {
       const p = origin.clone().addScaledVector(dir, best.t);
       weapon.tracer(muzzleW, p);
-      const dmg = WPN.damage * (best.head ? WPN.headMul : 1);
+      const dmg = shot.def.damage * (best.head ? shot.def.headMul : 1);
       G.shotsHit = (G.shotsHit || 0) + 1;
       const killed = best.actor.hit(dmg, best.head);
       HUD.hitMarker(killed ? 'kill' : best.head ? 'head' : 'hit');
@@ -649,6 +736,148 @@
     }
   }
 
+  /* ============================================================== grenades */
+  const grenadeMeshes = [];
+  let nadeCd = 0;
+
+  function throwGrenade() {
+    if (!G.running || nadeCd > 0) return;
+    if (G.nades <= 0) { HUD.msg('手雷已用完', 1.4); SFX.dryFire(); return; }
+    G.nades--;
+    HUD.setNades(G.nades);
+    nadeCd = 0.65;
+    const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.075, 12, 10),
+      new THREE.MeshStandardMaterial({ color: 0x39442f, roughness: 0.6, metalness: 0.2 })
+    );
+    mesh.add(new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.04, 0.02), new THREE.MeshStandardMaterial({ color: 0x9aa2a8, metalness: 0.8, roughness: 0.3 })));
+    scene.add(mesh);
+    const pos = camera.position.clone().addScaledVector(dir, 0.35).addScaledVector(right, 0.12);
+    mesh.position.copy(pos);
+    grenadeMeshes.push({
+      mesh, pos, vel: dir.clone().multiplyScalar(12.5).add(new THREE.Vector3(0, 2.4, 0)),
+      fuse: 2.35, spin: new THREE.Vector3(U.rnd(-9, 9), U.rnd(-9, 9), U.rnd(-9, 9))
+    });
+    SFX.pickup('ammo');
+  }
+
+  function updateGrenades(dt) {
+    nadeCd = Math.max(0, nadeCd - dt);
+    for (let i = grenadeMeshes.length - 1; i >= 0; i--) {
+      const g = grenadeMeshes[i];
+      g.fuse -= dt;
+      g.vel.y -= 15 * dt;
+      const nx = g.pos.x + g.vel.x * dt;
+      const nz = g.pos.z + g.vel.z * dt;
+      if (Phys.blocked(nx, nz, 0.09)) {
+        // bounce off the nearest wall axis
+        if (!Phys.blocked(nx, g.pos.z, 0.09)) { g.pos.x = nx; g.vel.z *= -0.42; }
+        else if (!Phys.blocked(g.pos.x, nz, 0.09)) { g.pos.z = nz; g.vel.x *= -0.42; }
+        else { g.vel.x *= -0.42; g.vel.z *= -0.42; }
+      } else { g.pos.x = nx; g.pos.z = nz; }
+      g.pos.y += g.vel.y * dt;
+      if (g.pos.y < 0.09) {
+        g.pos.y = 0.09;
+        g.vel.y = Math.abs(g.vel.y) * 0.22;
+        g.vel.x *= 0.62; g.vel.z *= 0.62;   // carpet/stone friction
+        if (Math.abs(g.vel.y) < 0.6) g.vel.y = 0;
+        g.vel.x *= 0.985; g.vel.z *= 0.985;
+      }
+      g.mesh.position.copy(g.pos);
+      g.mesh.rotation.x += g.spin.x * dt;
+      g.mesh.rotation.y += g.spin.y * dt;
+      g.mesh.rotation.z += g.spin.z * dt;
+      if (g.fuse <= 0) {
+        scene.remove(g.mesh);
+        grenadeMeshes.splice(i, 1);
+        explode(g.pos.clone());
+      }
+    }
+  }
+
+  function explode(center) {
+    SFX.explosion();
+    G.shake = Math.max(G.shake || 0, 0.55);
+    const light = new THREE.PointLight(0xffb060, 60, 16, 2);
+    light.position.copy(center).add(new THREE.Vector3(0, 0.6, 0));
+    scene.add(light);
+    booms.push({ light, t: 0, life: 0.28, center: center.clone() });
+
+    for (const rb of robbers) {
+      if (rb.state === 3) continue;
+      const d = Math.hypot(rb.pos.x - center.x, rb.pos.z - center.z);
+      if (d > 6.6) continue;
+      if (!Phys.los(center.x, center.y + 0.4, center.z, rb.pos.x, 1.0, rb.pos.z)) continue;
+      const dmg = 118 * Math.pow(1 - d / 6.6, 1.25);
+      const killed = rb.hit(dmg, false);
+      if (killed) onRobberKilled(rb, false);
+      else { rb.state = 2; rb.alertTo(player.pos.x, player.pos.z, true); }
+    }
+    const pd = Math.hypot(player.pos.x - center.x, player.pos.z - center.z);
+    if (pd < 5.2 && player.alive) {
+      G.damagePlayer(64 * Math.pow(1 - pd / 5.2, 1.2), center.x, center.z);
+    }
+    makeNoise(center.x, center.z, 40, 0);
+    HUD.hudKick && HUD.hudKick();
+  }
+
+  const booms = [];
+  function updateBooms(dt) {
+    for (let i = booms.length - 1; i >= 0; i--) {
+      const b = booms[i];
+      b.t += dt;
+      b.light.intensity = Math.max(0, 60 * (1 - b.t / b.life));
+      if (b.t >= b.life) { scene.remove(b.light); booms.splice(i, 1); }
+    }
+  }
+
+  /* ============================================================== weapon slots & drops */
+  function swapWeapon() {
+    if (!G.running) return;
+    const d = weapon.swap();
+    if (d) HUD.msg(`切换 · ${d.name}`, 1.3);
+  }
+  function equipSlot(i) {
+    if (!G.running) return;
+    const k = weapon.owned[i];
+    if (!k) return;
+    if (weapon.cur !== k) { weapon.setCurrent(k); HUD.msg(`切换 · ${weapon.def.name}`, 1.2); }
+  }
+
+  function spawnDrop(x, z, kind) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0x2b3034, roughness: 0.5, metalness: 0.45 });
+    const wood = new THREE.MeshStandardMaterial({ color: 0x6b4a32, roughness: 0.8 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.07, 0.12), mat);
+    body.position.y = 0.055;
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.1), wood);
+    stock.position.set(0.4, 0.05, 0);
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.06), mat);
+    mag.position.set(-0.05, 0.02, 0.06);
+    mag.rotation.x = 0.35;
+    g.add(body, stock, mag);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.36, 24), new THREE.MeshBasicMaterial({
+      color: 0xffb347, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending
+    }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.015;
+    g.add(ring);
+    g.position.set(x, 0, z);
+    g.rotation.y = U.rnd(0, 6.28);
+    scene.add(g);
+    G.drops.push({ x, z, mesh: g, ring, kind: kind || 'rifle', taken: false, t: U.rnd(0, 6) });
+  }
+
+  function updateDrops(dt) {
+    for (const d of G.drops) {
+      if (d.taken) continue;
+      d.t += dt * 2;
+      d.ring.material.opacity = 0.26 + Math.sin(d.t * 1.5) * 0.12;
+      d.ring.scale.setScalar(1 + Math.sin(d.t * 1.1) * 0.05);
+    }
+  }
+
   /* ============================================================== damage */
   G.damagePlayer = function (dmg, sx, sz) {
     if (!player.alive || G.ended || G.god) return;
@@ -702,8 +931,14 @@
     HUD.kill('劫匪', head);
     G.objFlash = 1;
     SFX.hitmarker(false);
+    // dropped weapon swap: the first kill always drops, later kills sometimes
+    if ((!G.droppedOnce || Math.random() < 0.22) && G.drops.length < 3) {
+      G.droppedOnce = true;
+      spawnDrop(rb.pos.x + U.rnd(-0.3, 0.3), rb.pos.z + U.rnd(-0.3, 0.3), 'rifle');
+    }
 
     if (G.robbersLeft === 0) {
+      saveCheckpoint();
       setTimeout(() => {
         HUD.say('陈立群 · CEO', '外面…外面安静了？是你吗？我在 CEO 办公室！', 5.2);
         HUD.msg('所有劫匪已被清除 · 前往 CEO 办公室营救老板', 4);
@@ -712,6 +947,7 @@
       const room = LV.rooms.find((r) => r.id === rb.room);
       HUD.msg(`${room ? room.name : '区域'} 已清空`, 2.2);
       HUD.say('队长 · 无线电', `${room ? room.name : '区域'}清空，继续搜。`, 2.6);
+      saveCheckpoint();
     }
   }
 
@@ -750,19 +986,24 @@
       if (h.freed) continue;
       consider(h.pos.x, h.pos.z, 1.8, { kind: 'hostage', hostage: h, label: '解开束缚', key: 'E', hold: true, holdTime: 1.5 });
     }
+    // dropped weapons
+    for (const dr of (G.drops || [])) {
+      if (dr.taken) continue;
+      consider(dr.x, dr.z, 1.6, { kind: 'drop', drop: dr, label: '拾取 AK-74', key: 'E', hold: false });
+    }
     // pickups
     for (const pk of pickups) {
       if (pk.taken) continue;
-      if (pk.kind === 'ammo' && weapon.reserve >= WPN.reserve) continue;
-      if (pk.kind === 'health' && player.hp >= 100) continue;
+      if (pk.kind === 'ammo' && weapon.reserve >= weapon.def.reserve) continue;
+      if (pk.kind === 'health' && player.hp >= player.maxHp) continue;
       const d = Math.hypot(pk.x - p.x, pk.z - p.z);
       if (d < 1.35) {
         if (pk.kind === 'ammo') {
-          weapon.reserve = Math.min(WPN.reserve, weapon.reserve + 60);
+          weapon.reserve = Math.min(weapon.def.reserve, weapon.reserve + 60);
           SFX.pickup('ammo');
           HUD.msg('补充弹药 +60', 1.6);
         } else {
-          player.hp = Math.min(100, player.hp + 35);
+          player.hp = Math.min(player.maxHp, player.hp + 35);
           SFX.pickup('health');
           HUD.msg('使用医疗包 +35', 1.6);
         }
@@ -810,6 +1051,14 @@
       h.fleeTo = { x: 2.0, z: 19.6 };
       h.fleePath = LV.nav.path(h.pos.x, h.pos.z, h.fleeTo.x, h.fleeTo.z);
       h.fleeI = 0;
+    } else if (it.kind === 'drop') {
+      const dr = it.drop;
+      if (!dr || dr.taken) return;
+      dr.taken = true;
+      dr.mesh.visible = false;
+      const def = weapon.pickup(dr.kind);
+      HUD.msg(`已装备 ${def ? def.name : 'AK-74'} · 按 Q 切换`, 2.6);
+      G.objFlash = 1;
     } else if (it.kind === 'boss') {
       G.bossFreed = true;
       SFX.pickup('health');
@@ -835,6 +1084,7 @@
     $('w-kills').textContent = G.robberKills;
     $('w-hosts').textContent = `${G.hostagesFreed || 0}/${hostages.length}`;
     if ($('w-retries')) $('w-retries').textContent = G.retries;
+    if ($('w-diff')) $('w-diff').textContent = G.diff ? G.diff.name : '标准';
     let rating = 'C · 勉强过关';
     if (acc >= 55 && G.time < 300 && (G.hostagesFreed || 0) >= 3) rating = 'S · 干净利落';
     else if (acc >= 40 && G.time < 420) rating = 'A · 专业水准';
@@ -977,7 +1227,12 @@
     G.lastDt = dt;
     if (G.running && !G.paused) {
       G.time += dt;
+      refreshInput();
+      pollGamepad(dt);
       updatePlayer(dt);
+      updateGrenades(dt);
+      updateDrops(dt);
+      updateBooms(dt);
       updateWeaponInput(dt);
       tryShoot(dt);
       updateActors(dt);
@@ -1069,14 +1324,20 @@
           <div class="mark"><b>几</b></div>
           <div class="co"><b>海程资本</b><br>HAICHENG CAPITAL · 42F 危机响应</div>
         </div>
-        <div class="m-eyebrow"><span class="m-tag rust">LEVEL 4</span><span>海程中心 · 42 层</span><span class="m-dim">22:47 · 封锁中</span></div>
+        <div class="m-eyebrow"><span class="m-tag rust">LEVEL 4</span><span>海程中心 · 42 层</span><span class="m-dim">15:10 · 封锁中</span></div>
         <h1 class="m-word">抢救<span class="m-subtitle">老板</span></h1>
-        <p class="m-premise">一伙劫匪在收盘后封锁了 42 层，老板被困在 CEO 办公室。<br>逐间清剿劫匪——清空全层后，去 CEO 办公室找到他。</p>
+        <p class="m-premise">一伙劫匪在午后封锁了 42 层，老板被困在 CEO 办公室。<br>逐间清剿劫匪——清空全层后，去 CEO 办公室找到他。</p>
         <div class="m-brief">
           <div><span>区域</span><b>5 个房间 + 大堂</b></div>
           <div><span>目标物</span><b>劫匪 · 共 10 名</b></div>
           <div><span>胜 利 条 件</span><b>击败全部 + 找到老板</b></div>
           <div><span>营 救 点</span><b>CEO 办公室</b></div>
+        </div>
+        <div class="m-diff" role="group" aria-label="难度">
+          <span class="m-diff-k">难度</span>
+          <button data-diff="easy">轻松</button>
+          <button data-diff="normal" aria-pressed="true">标准</button>
+          <button data-diff="hard">硬核</button>
         </div>
         <div class="m-actions">
           <button class="btn primary" data-act="deploy">进入 42 层</button>
@@ -1088,7 +1349,7 @@
       </div>
       <aside class="m-legend" aria-label="操作速览">
         <div><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动</span><span><kbd>鼠标</kbd> 视角</span><span><kbd>左键</kbd> 射击</span></div>
-        <div><span><kbd>右键</kbd> 瞄准</span><span><kbd>R</kbd> 换弹</span><span><kbd>E</kbd> 营救 / 撤离</span><span><kbd>F</kbd> 近战</span></div>
+        <div><span><kbd>右键</kbd> 瞄准</span><span><kbd>R</kbd> 换弹</span><span><kbd>Q</kbd> 换枪</span><span><kbd>G</kbd> 手雷</span><span><kbd>E</kbd> 营救</span></div>
         <div><span><kbd>Space</kbd> 跳跃</span><span><kbd>Shift</kbd> 冲刺</span><span><kbd>C</kbd> 蹲伏</span><span><kbd>Esc</kbd> 暂停</span></div>
         <div class="lg-touch"><em>触屏操作</em><span>左半屏滑动移动</span><span>右半屏拖动视角</span><span>按钮：开火 / 瞄准 / 换弹 / 跳跃</span></div>
       </aside>
@@ -1114,7 +1375,10 @@
         <div><dt>坚持时间</dt><dd id="dead-time">00:00</dd></div>
         <div><dt>击倒劫匪</dt><dd id="dead-kills">0</dd></div>
       </dl>
-      <div class="m-actions col"><button class="btn primary" data-act="retry">重新进入</button></div>
+      <div class="m-actions col">
+        <button class="btn primary" data-act="checkpoint" id="btnCp">从检查点继续</button>
+        <button class="btn" data-act="retry">重新开始</button>
+      </div>
     </section>`,
     complete: `
     <section class="m-screen m-card m-debrief" data-s="complete" aria-label="行动简报">
@@ -1127,6 +1391,7 @@
         <div><dt>命中率</dt><dd id="w-acc">0%</dd></div>
         <div><dt>击倒劫匪</dt><dd id="w-kills">0</dd></div>
         <div><dt>救出人质</dt><dd id="w-hosts">0/4</dd></div>
+        <div><dt>难度</dt><dd id="w-diff">标准</dd></div>
         <div><dt>重试次数</dt><dd id="w-retries">0</dd></div>
       </dl>
       <div class="m-actions col"><button class="btn primary" data-act="redeploy">再次进入</button></div>
@@ -1143,13 +1408,20 @@
       </header>
       <div class="panel-b about-copy" data-pane="about" hidden>
         <h3>任务简报 · 42F</h3>
-        <p>22:47，五名持械人员从货梯进入 42 层，控制了前台与员工区。安保系统被切断，电梯锁定在本层。</p>
+        <p>15:10，五名持械人员从货梯进入 42 层，控制了前台与员工区。安保系统被切断，电梯锁定在本层。</p>
         <p>目标：<strong>清剿五处区域的劫匪</strong>（CEO 办公室、CFO 办公室、会议室、茶水间、员工办公大厅），随后进入 CEO 办公室<strong>营救老板</strong>。清空全层之前，老板不会跟你走。</p>
         <p>楼层布局：南侧是<strong>前台大堂</strong>与电梯厅；中部为<strong>员工办公大厅</strong>；北侧为<strong>会议室</strong>；东西两翼分别是<strong>CFO 办公室</strong>与<strong>CEO 办公室</strong>；西北角是<strong>茶水间</strong>。</p>
         <p>每个房间都有劫匪与人质。人质可解开束缚，他们会自行撤离；医疗包与弹药散落在楼层各处。</p>
         <p class="panel-note">难度提示：劫匪会在听到枪声后进入警戒并搜索；正面遭遇时他们会拉开距离、侧移并点射。蹲下可降低被发现概率与后坐，瞄准镜能显著提升精度。</p>
       </div>
       <div class="panel-b" data-pane="settings">
+        <div class="row"><label id="l-diff">难度</label>
+          <div class="seg" role="group" aria-labelledby="l-diff">
+            <button data-diff="easy" aria-pressed="false">轻松</button>
+            <button data-diff="normal" aria-pressed="true">标准</button>
+            <button data-diff="hard" aria-pressed="false">硬核</button>
+          </div>
+        </div>
         <div class="row"><label id="l-q">画面质量</label>
           <div class="seg" role="group" aria-labelledby="l-q">
             <button data-q="low" aria-pressed="false">流畅</button>
@@ -1171,6 +1443,8 @@
           <div><dt>开火</dt><dd>鼠标左键</dd></div>
           <div><dt>瞄准</dt><dd>鼠标右键</dd></div>
           <div><dt>换弹</dt><dd><kbd>R</kbd></dd></div>
+          <div><dt>切换武器</dt><dd><kbd>Q</kbd> / <kbd>1</kbd> <kbd>2</kbd></dd></div>
+          <div><dt>手雷</dt><dd><kbd>G</kbd></dd></div>
           <div><dt>营救 / 撤离</dt><dd>按住 <kbd>E</kbd></dd></div>
           <div><dt>近战</dt><dd><kbd>F</kbd></dd></div>
           <div><dt>跳跃</dt><dd><kbd>Space</kbd></dd></div>
@@ -1180,12 +1454,21 @@
           <div><dt>暂停</dt><dd><kbd>Esc</kbd> / <kbd>P</kbd></dd></div>
         </dl>
         <p class="panel-note">若浏览器无法锁定鼠标，按住左键拖动也能转动视角（同时开火）。</p>
+        <h3>手柄</h3>
+        <dl class="keys">
+          <div><dt>移动 / 视角</dt><dd>左摇杆 / 右摇杆</dd></div>
+          <div><dt>开火 / 瞄准</dt><dd>RT / LT</dd></div>
+          <div><dt>换枪 / 手雷</dt><dd>LB / RB</dd></div>
+          <div><dt>换弹 / 跳跃</dt><dd>X / A</dd></div>
+          <div><dt>蹲伏 / 交互</dt><dd>B / Y</dd></div>
+          <div><dt>暂停</dt><dd>Start</dd></div>
+        </dl>
         <h3>触屏</h3>
         <dl class="keys">
           <div><dt>移动</dt><dd>左半屏滑动</dd></div>
           <div><dt>视角</dt><dd>右半屏拖动</dd></div>
           <div><dt>开火 / 瞄准</dt><dd>屏幕右下按钮</dd></div>
-          <div><dt>换弹 / 跳跃</dt><dd>右侧按钮</dd></div>
+          <div><dt>换弹 / 跳跃 / 换枪 / 手雷</dt><dd>右侧按钮</dd></div>
           <div><dt>营救</dt><dd>靠近后按住“交互”</dd></div>
         </dl>
       </div>
@@ -1221,6 +1504,8 @@
       if (t) { tab(t.dataset.tab); return; }
       const q = e.target.closest('[data-q]');
       if (q) { setQuality(q.dataset.q); return; }
+      const df = e.target.closest('[data-diff]');
+      if (df) { setDifficulty(df.dataset.diff); return; }
     });
 
     // settings wiring
@@ -1251,6 +1536,7 @@
         vol.value = settings.volume; $('o-vol').textContent = Math.round(settings.volume * 100) + '%';
         fov.value = settings.fov; $('o-fov').textContent = Math.round(settings.fov) + '°';
         setQuality(settings.quality, true);
+        setDifficulty(settings.difficulty || 'normal');
         if (camera) { camera.fov = settings.fov; camera.updateProjectionMatrix(); }
         SFX.setVolume(settings.volume);
       }
@@ -1297,6 +1583,28 @@
     HUD.msg(SFX.muted ? '已静音' : '声音已开启', 1.6);
   }
 
+  function setDifficulty(d) {
+    if (!DIFFS[d]) return;
+    settings.difficulty = d;
+    G.diff = DIFFS[d];
+    menusEl.querySelectorAll('[data-diff]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.diff === d ? 'true' : 'false'));
+    saveSettings();
+    if (player) {
+      const oldMax = player.maxHp || 100;
+      player.maxHp = G.diff.hp;
+      if (G.running) player.hp = Math.min(player.hp, player.maxHp);
+    }
+    if (G.running) {
+      for (const r of robbers) {
+        if (r.state === 3) continue;
+        const ratio = r.maxHp ? r.hp / r.maxHp : 1;
+        r.maxHp = G.diff.enemyHp;
+        r.hp = Math.max(1, Math.min(r.maxHp, r.maxHp * ratio));
+      }
+      HUD.msg(`难度 · ${G.diff.name}`, 2);
+    }
+  }
+
   function tab(name) {
     menusEl.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === name ? 'true' : 'false'));
     menusEl.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== name; });
@@ -1309,6 +1617,9 @@
     panelEl.hidden = true;
     if (screen === 'paused') {
       $('pause-line').textContent = `42F · 还剩 ${G.robbersLeft} 名劫匪`;
+    }
+    if (screen === 'dead' && $('btnCp')) {
+      $('btnCp').hidden = !G.checkpoint;
     }
     SFX.setAmbient(0.5);
   }
@@ -1339,7 +1650,12 @@
       case 'restart': case 'retry': case 'redeploy':
         hideMenus();
         G.retries++;
-        restart();
+        restart(false);
+        break;
+      case 'checkpoint':
+        hideMenus();
+        G.retries++;
+        restart(true);
         break;
       default: break;
     }
@@ -1353,22 +1669,49 @@
   }
 
   /* ============================================================== state */
-  function startGame() {
+  function startGame(cp) {
     G.running = true;
     G.paused = false;
-    G.time = 0;
-    G.robberKills = 0;
-    G.shotsFired = 0;
-    G.shotsHit = 0;
-    G.hostagesFreed = 0;
+    G.diff = DIFFS[settings.difficulty] || DIFFS.normal;
+    for (const r of robbers) {
+      if (r.state === 3) continue;
+      r.maxHp = G.diff.enemyHp;
+      r.hp = r.maxHp;
+    }
+    if (!cp) {
+      G.time = 0;
+      G.robberKills = 0;
+      G.shotsFired = 0;
+      G.shotsHit = 0;
+      G.firstSpotted = false;
+      G.alertLevel = 0;
+      G.bossFreed = false;
+      player.maxHp = G.diff.hp;
+      player.hp = player.maxHp;
+      G.nades = G.diff.nades;
+      weapon.reset();
+      G.checkpoint = null;
+      G.droppedOnce = false;
+    } else {
+      G.time = cp.time;
+      G.robberKills = cp.kills;
+      G.shotsFired = cp.shots;
+      G.shotsHit = cp.hits;
+      player.maxHp = G.diff.hp;
+      player.hp = Math.min(cp.hp, player.maxHp);
+      G.nades = cp.nades;
+      weapon.owned = cp.owned.slice();
+      weapon.ammo = JSON.parse(JSON.stringify(cp.ammo));
+      weapon.setCurrent(cp.cur, true);
+      G.droppedOnce = true;
+      G.bossFreed = !!cp.bossFreed;
+    }
     G.visited = {};
-    G.firstSpotted = false;
-    G.alertLevel = 0;
-    G.bossFreed = false;
     G.ended = false;
-    player.hp = 100;
     player.alive = true;
     weapon.gun.visible = true;
+    HUD.setWeapon(weapon);
+    HUD.setNades(G.nades);
     HUD.lastLocRoom = null;
     HUD.el.hud.classList.add('on');
     HUD.location('前台大堂', 'RECEPTION · 42F 海程中心');
@@ -1403,25 +1746,30 @@
     if (!G.running) return;
     G.paused = true;
     G.running = false;
-    input.fire = false; input.ads = false;
+    input.fireMouse = false; input.adsMouse = false; input.touchFire = false; input.padFire = false; input.padAds = false;
     document.exitPointerLock && document.exitPointerLock();
     showMenu('paused');
   }
 
-  function restart() {
+  function restart(fromCheckpoint) {
+    const cp = fromCheckpoint ? G.checkpoint : null;
     // reset level actors
     for (const rb of robbers) scene.remove(rb.rig.root);
     for (const h of hostages) scene.remove(h.rig.root);
     if (boss) scene.remove(boss.rig.root);
     for (const p of pickups) scene.remove(p.mesh);
+    for (const d of (G.drops || [])) scene.remove(d.mesh);
+    for (const g of grenadeMeshes) scene.remove(g.mesh);
+    grenadeMeshes.length = 0;
+    G.drops = [];
     for (const r of LV.rooms) r.total = 0;
-    spawnActors();
+    spawnActors(cp);
 
-    player.pos.set(LV.spawn.x, 0, LV.spawn.z);
+    player.pos.set(cp ? cp.x : LV.spawn.x, 0, cp ? cp.z : LV.spawn.z);
     player.vel.set(0, 0, 0);
-    player.yaw = 0; player.pitch = 0;
-    player.hp = 100; player.alive = true; player.grounded = true; player.pos.y = 0;
-    weapon.reset();
+    player.yaw = cp ? cp.yaw : 0; player.pitch = cp ? cp.pitch : 0;
+    player.alive = true; player.grounded = true; player.pos.y = 0;
+    if (!cp) { player.hp = G.diff.hp; weapon.reset(); }
     weapon.gun.visible = true;
     post.hurt = 0;
     HUD.hurtT = 0;
@@ -1429,7 +1777,31 @@
     HUD.el.comms.classList.remove('on'); HUD.commT = 0;
     HUD.msgT = 0; HUD.el.msg.classList.remove('on');
     HUD.el.health.classList.remove('on');
-    startGame();
+    startGame(cp);
+    if (cp) HUD.msg('已从检查点继续', 2.2);
+  }
+
+  /* ============================================================== checkpoints */
+  function saveCheckpoint() {
+    if (!G.running) return;
+    const seen = {};
+    for (const id in G.roomState) seen[id] = G.roomState[id].discovered;
+    G.checkpoint = {
+      x: player.pos.x, z: player.pos.z, yaw: player.yaw, pitch: player.pitch,
+      hp: player.hp, nades: G.nades, time: G.time,
+      kills: G.robberKills, shots: G.shotsFired, hits: G.shotsHit,
+      dead: LV.actors.robbers.map((d, i) => {
+        const r = robbers.find((x) => x.defIndex === i);
+        return !r || r.state === 3;
+      }),
+      freed: LV.actors.hostages.map((h, i) => h._freed === true || (G.hostages && G.hostagesFreed > 0 && false)),
+      bossFreed: G.bossFreed,
+      ammo: JSON.parse(JSON.stringify(weapon.ammo)),
+      owned: weapon.owned.slice(), cur: weapon.cur,
+      seen
+    };
+    // hostages: mark by matching positions against the live list
+    G.checkpoint.freed = LV.actors.hostages.map((h) => !hostages.some((x) => Math.hypot(x.pos.x - h.x, x.pos.z - h.z) < 0.4));
   }
 
   /* ============================================================== go */
@@ -1483,6 +1855,7 @@
       weapon.gun.visible = !on && player.alive;
     },
     hudHide: (on) => { document.getElementById('hud').style.opacity = on ? '0' : ''; },
+    explodeAt: (x, z) => { explode(new THREE.Vector3(x, 0.4, z)); },
     aimAt: (x, y, z) => {
       const dx = x - camera.position.x, dy = y - camera.position.y, dz = z - camera.position.z;
       player.yaw = Math.atan2(-dx, -dz);
