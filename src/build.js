@@ -38,6 +38,14 @@ if (/src="js\/|href="css\//.test(html)) {
   process.exit(1);
 }
 
-const out = path.join(root, '..', '抢救老板_V1.html');
-fs.writeFileSync(out, html);
-console.log('wrote', out, (Buffer.byteLength(html) / 1024 / 1024).toFixed(2) + ' MB');
+// 1) repo entry point for GitHub Pages
+const outIndex = path.join(root, '..', 'index.html');
+// 2) the named copy kept at Desktop/3A
+const outCopy = path.join(root, '..', '..', '抢救老板_V1.html');
+
+fs.writeFileSync(outIndex, html);
+fs.writeFileSync(outCopy, html);
+
+const mb = (Buffer.byteLength(html) / 1024 / 1024).toFixed(2) + ' MB';
+console.log('wrote', outIndex, mb);
+console.log('wrote', outCopy, mb);

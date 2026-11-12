@@ -143,8 +143,15 @@ src/
 
 ```bash
 cd src
-node build.js     # 生成 ../抢救老板_V1.html
+node build.js
 ```
+
+会同时写出两份完全相同的单文件游戏：
+
+- `抢救老板/index.html` — GitHub Pages 入口
+- `Desktop/3A/抢救老板_V1.html` — 根目录留档副本
+
+如果只直接改了 `index.html`（没有动 `src/`），运行一次 `node tools/sync.js` 即可把副本同步到根目录。
 
 ## 浏览器要求
 
