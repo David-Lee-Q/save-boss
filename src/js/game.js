@@ -85,6 +85,9 @@
 
   /* ============================================================== init */
   function init() {
+    const T0 = performance.now();
+    G.bootMarks = {};
+    const mark = (n) => { G.bootMarks[n] = +(performance.now() - T0).toFixed(0); };
     canvas = $('view');
     try {
       renderer = new THREE.WebGLRenderer({
@@ -106,19 +109,24 @@
     camera = new THREE.PerspectiveCamera(settings.fov, window.innerWidth / window.innerHeight, 0.045, 400);
     camera.position.set(player.pos.x, player.eyeY, player.pos.z);
 
+    mark('renderer');
     const eq = TEX.envEquirect();
+    mark('equirect');
     const pmrem = new THREE.PMREMGenerator(renderer);
     pmrem.compileEquirectangularShader();
     const envRT = pmrem.fromEquirectangular(eq);
     scene.environment = envRT.texture;
     scene.background = null;
+    mark('pmrem');
 
     U.aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
     setBoot(38, '正在装配 42 层家具');
     LV.build(scene, renderer, eq);
+    mark('level');
     setBoot(66, '正在部署劫匪');
     spawnActors();
+    mark('actors');
 
     weapon = new Weapon(scene, camera);
     weapon.reset();
@@ -130,6 +138,7 @@
 
     HUD.init(G);
     hud = HUD;
+    mark('hud');
 
     G.scene = scene; G.camera = camera; G.renderer = renderer;
     G.SCENE = scene;
@@ -137,9 +146,6 @@
     resize();
     bindEvents();
     setBoot(88, '正在校准视线');
-
-    // warm-up compile
-    try { renderer.compile(scene, camera); } catch (e) { }
 
     setupMenus();
     setBoot(100, '就绪');

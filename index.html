@@ -2706,12 +2706,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     warm(19, 3.2, 2.0, 42, 18, 0xffd9b0);       // ceo
     warm(-19, 3.2, 2.0, 38, 18, 0xffd9b0);      // cfo
     warm(-17.6, 3.0, 17.6, 42, 16, 0xffe3c0);   // pantry
-    warm(0, 3.2, -10.6, 24, 14, 0xffd7a8);      // north corridor
-    warm(0, 3.2, 10.6, 24, 14, 0xffd7a8);       // south corridor
-    warm(10.7, 3.2, -6.5, 16, 12, 0xffd7a8);    // east corridor ends
-    warm(10.7, 3.2, 6.5, 16, 12, 0xffd7a8);
-    warm(-10.7, 3.2, -6.5, 16, 12, 0xffd7a8);
-    warm(-10.7, 3.2, 6.5, 16, 12, 0xffd7a8);
+    // corridors are lit by their emissive ceiling runs plus the room spill
 
     // alarm beacons in the corridors (pulse in game.js)
     const beacon = warm(-4.5, 3.3, -11.8, 0, 9, 0xff3a20);
@@ -4459,6 +4454,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
   /* ============================================================== init */
   function init() {
+    const T0 = performance.now();
+    G.bootMarks = {};
+    const mark = (n) => { G.bootMarks[n] = +(performance.now() - T0).toFixed(0); };
     canvas = $('view');
     try {
       renderer = new THREE.WebGLRenderer({
@@ -4480,19 +4478,24 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     camera = new THREE.PerspectiveCamera(settings.fov, window.innerWidth / window.innerHeight, 0.045, 400);
     camera.position.set(player.pos.x, player.eyeY, player.pos.z);
 
+    mark('renderer');
     const eq = TEX.envEquirect();
+    mark('equirect');
     const pmrem = new THREE.PMREMGenerator(renderer);
     pmrem.compileEquirectangularShader();
     const envRT = pmrem.fromEquirectangular(eq);
     scene.environment = envRT.texture;
     scene.background = null;
+    mark('pmrem');
 
     U.aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
     setBoot(38, '正在装配 42 层家具');
     LV.build(scene, renderer, eq);
+    mark('level');
     setBoot(66, '正在部署劫匪');
     spawnActors();
+    mark('actors');
 
     weapon = new Weapon(scene, camera);
     weapon.reset();
@@ -4504,6 +4507,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
     HUD.init(G);
     hud = HUD;
+    mark('hud');
 
     G.scene = scene; G.camera = camera; G.renderer = renderer;
     G.SCENE = scene;
@@ -4511,9 +4515,6 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     resize();
     bindEvents();
     setBoot(88, '正在校准视线');
-
-    // warm-up compile
-    try { renderer.compile(scene, camera); } catch (e) { }
 
     setupMenus();
     setBoot(100, '就绪');

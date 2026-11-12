@@ -992,12 +992,7 @@
     warm(19, 3.2, 2.0, 42, 18, 0xffd9b0);       // ceo
     warm(-19, 3.2, 2.0, 38, 18, 0xffd9b0);      // cfo
     warm(-17.6, 3.0, 17.6, 42, 16, 0xffe3c0);   // pantry
-    warm(0, 3.2, -10.6, 24, 14, 0xffd7a8);      // north corridor
-    warm(0, 3.2, 10.6, 24, 14, 0xffd7a8);       // south corridor
-    warm(10.7, 3.2, -6.5, 16, 12, 0xffd7a8);    // east corridor ends
-    warm(10.7, 3.2, 6.5, 16, 12, 0xffd7a8);
-    warm(-10.7, 3.2, -6.5, 16, 12, 0xffd7a8);
-    warm(-10.7, 3.2, 6.5, 16, 12, 0xffd7a8);
+    // corridors are lit by their emissive ceiling runs plus the room spill
 
     // alarm beacons in the corridors (pulse in game.js)
     const beacon = warm(-4.5, 3.3, -11.8, 0, 9, 0xff3a20);
