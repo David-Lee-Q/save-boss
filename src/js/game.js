@@ -111,6 +111,7 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.autoUpdate = false;   // the wing is static: render the sun map once
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     renderer.toneMapping = THREE.NoToneMapping;
     renderer.setClearColor(0x070a0e, 1);
@@ -146,6 +147,7 @@
     post.rtScene.depthTexture = null;
     G.post = post;
 
+    renderer.shadowMap.needsUpdate = true;
     HUD.init(G);
     hud = HUD;
     mark('hud');
@@ -1268,12 +1270,9 @@
       const hot = G.alertLevel;
       LV.beacon.intensity = hot * (1.6 + Math.sin(clockT * 7) * 1.4);
     }
-    // shadow light follows the player loosely for crisper near shadows
-    if (LV.sun) {
-      LV.sun.target.position.set(player.pos.x, 0, player.pos.z);
-      LV.sun.target.updateMatrixWorld();
-      LV.sun.position.set(player.pos.x - 34, 30, player.pos.z + 34);
-    }
+    // the sun stays fixed: moving a shadow-casting light every frame makes the
+    // shadow map shimmer across walls and floors
+
 
     if (G.booted) HUD.update(dt, G);
 
@@ -1301,16 +1300,17 @@
   }
 
   /* quality governor */
-  let qT = 0, qCool = 3;
+  let qT = 0, qHold = 0;
   function adaptQuality() {
     qT += 0.5;
-    if (qT < qCool) return;
-    if (fps < 42 && post.scale > 0.6) {
-      post.scale = Math.max(0.62, post.scale - 0.12);
+    if (qHold > 0) { qHold -= 0.5; return; }
+    if (qT < 4) return;
+    // Downscale only, with hysteresis: toggling the render size every few seconds
+    // reads as a shimmer across floors and walls, so never scale back up mid-run.
+    if (fps < 45 && post.scale > 0.75) {
+      post.scale = Math.max(0.75, post.scale - 0.08);
       resize();
-    } else if (fps > 58 && post.scale < 1) {
-      post.scale = Math.min(1, post.scale + 0.06);
-      resize();
+      qHold = 12;
     }
     qT = 0;
   }
@@ -1575,6 +1575,7 @@
         LV.sun.shadow.mapSize.set(size, size);
         if (LV.sun.shadow.map) { LV.sun.shadow.map.dispose(); LV.sun.shadow.map = null; }
       }
+      renderer.shadowMap.needsUpdate = true;
     }
   }
 
@@ -1616,7 +1617,8 @@
     menusEl.dataset.screen = screen;
     panelEl.hidden = true;
     if (screen === 'paused') {
-      $('pause-line').textContent = `42F · 还剩 ${G.robbersLeft} 名劫匪`;
+      const pl = menusEl.querySelector('[data-f="pause-line"]');
+      if (pl) pl.textContent = `42F · 还剩 ${G.robbersLeft} 名劫匪`;
     }
     if (screen === 'dead' && $('btnCp')) {
       $('btnCp').hidden = !G.checkpoint;

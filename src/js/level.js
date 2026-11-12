@@ -294,9 +294,9 @@
     }
 
     /* ============================================ floors & ceilings */
-    function floorRect(rect, key) {
+    function floorRect(rect, key, y) {
       const w = rect.x2 - rect.x1, d = rect.z2 - rect.z1;
-      pl(key, w, d, (rect.x1 + rect.x2) / 2, 0.001, (rect.z1 + rect.z2) / 2, -Math.PI / 2, 0);
+      pl(key, w, d, (rect.x1 + rect.x2) / 2, y == null ? 0.001 : y, (rect.z1 + rect.z2) / 2, -Math.PI / 2, 0);
     }
     function ceilRect(rect, key, y) {
       const w = rect.x2 - rect.x1, d = rect.z2 - rect.z1;
@@ -311,11 +311,11 @@
     floorRect({ x1: -26, x2: 26, z1: 12.5, z2: 22 }, 'carpet');
 
     // specific floors
-    floorRect({ x1: -9, x2: 12.5, z1: 12.5, z2: 22 }, 'marble');          // lobby
-    floorRect({ x1: -26, x2: -9, z1: 12.5, z2: 22 }, 'stone');            // pantry
-    floorRect({ x1: -12.5, x2: 12.5, z1: -22, z2: -12.5 }, 'carpetWarm'); // meeting
-    floorRect({ x1: 12.5, x2: 26, z1: -9, z2: 9 }, 'wood');               // ceo
-    floorRect({ x1: -26, x2: -12.5, z1: -9, z2: 9 }, 'wood');             // cfo
+    floorRect({ x1: -9, x2: 12.5, z1: 12.5, z2: 22 }, 'marble', 0.02);          // lobby
+    floorRect({ x1: -26, x2: -9, z1: 12.5, z2: 22 }, 'stone', 0.02);            // pantry
+    floorRect({ x1: -12.5, x2: 12.5, z1: -22, z2: -12.5 }, 'carpetWarm', 0.02); // meeting
+    floorRect({ x1: 12.5, x2: 26, z1: -9, z2: 9 }, 'wood', 0.02);               // ceo
+    floorRect({ x1: -26, x2: -12.5, z1: -9, z2: 9 }, 'wood', 0.02);             // cfo
 
     // ceilings
     ceilRect({ x1: -26, x2: 26, z1: -22, z2: -12.5 }, 'ceil', H);
@@ -329,8 +329,8 @@
     }
     bx('light', 20.6, 0.06, 0.5, 2.0, HL - 0.5, 17.4);
     bx('light', 20.6, 0.06, 0.5, 2.0, HL - 0.5, 14.0);
-    // open-office exposed slab + ducts
-    ceilRect({ x1: -9, x2: 9, z1: -9, z2: 9 }, 'concrete', H);
+    // open-office exposed slab + ducts (slightly below the base ceiling to avoid z-fighting)
+    ceilRect({ x1: -9, x2: 9, z1: -9, z2: 9 }, 'concrete', H - 0.02);
 
     /* ============================================ perimeter */
     // south: solid elevator core at the lobby, glass elsewhere
@@ -349,11 +349,10 @@
     // elevator doors
     for (let i = 0; i < 3; i++) {
       const ex = -3.2 + i * 5.2;
-      bx('metal', 2.1, 2.4, 0.1, ex, 1.2, 21.42);
-      bx('chrome', 2.3, 2.6, 0.06, ex, 1.3, 21.48);
-      bx('metal', 2.1, 2.4, 0.06, ex, 1.2, 21.4);
-      bx('alarm', 0.16, 0.16, 0.06, ex, 2.78, 21.42);
-      bx('metalDark', 0.06, 2.4, 0.12, ex, 1.2, 21.44);
+      bx('metal', 2.1, 2.4, 0.12, ex, 1.2, 21.42);
+      bx('chrome', 2.3, 2.6, 0.04, ex, 1.3, 21.49);
+      bx('alarm', 0.16, 0.16, 0.04, ex, 2.78, 21.5);
+      bx('metalDark', 0.07, 2.4, 0.14, ex, 1.2, 21.42);
     }
     // elevator call panel + floor indicator
     bx('metal', 0.24, 1.2, 0.08, 8.7, 1.35, 21.44);
@@ -471,7 +470,7 @@
       if (!contactTex) return;
       const g = new THREE.PlaneGeometry(sx, sz);
       g.rotateX(-Math.PI / 2);
-      g.translate(x, (y == null ? 0.012 : y), z);
+      g.translate(x, (y == null ? 0.035 : y), z);
       B.add(key, g);
     }
     const contactTex = (function () {
@@ -690,7 +689,7 @@
 
     /* ---- CEO office ---- */
     // rug
-    pl('fabricWarm', 6.4, 5.2, 19.2, 0.012, 2.2, -Math.PI / 2, 0);
+    pl('fabricWarm', 6.4, 5.2, 19.2, 0.03, 2.2, -Math.PI / 2, 0);
     bx('woodDark', 2.9, 0.07, 1.3, 18.6, 0.76, 4.6);
     bx('woodDark', 2.7, 0.3, 1.1, 18.6, 0.6, 4.6);
     bx('woodDark', 0.6, 0.72, 0.9, 17.55, 0.36, 4.6);
@@ -734,7 +733,7 @@
     }
 
     /* ---- CFO office ---- */
-    pl('fabric', 5.4, 4.4, -19.0, 0.012, 1.6, -Math.PI / 2, 0);
+    pl('fabric', 5.4, 4.4, -19.0, 0.03, 1.6, -Math.PI / 2, 0);
     bx('woodDark', 2.6, 0.07, 1.2, -19.0, 0.76, 4.4);
     bx('woodDark', 2.4, 0.3, 1.0, -19.0, 0.6, 4.4);
     bx('metalDark', 0.5, 0.72, 0.9, -20.1, 0.36, 4.4);
@@ -839,7 +838,7 @@
     bx('alarm', 0.05, 0.05, 0.05, 10.6, 1.1, 19.0);
     collider(10.4, 18.65, 10.8, 20.15, 0, 1.05);
     // marble inlay at the entry, with the floor number stencilled on it
-    pl('marbleDark', 5.6, 3.4, 1.0, 0.014, 15.2, -Math.PI / 2, 0);
+    pl('marbleDark', 5.6, 3.4, 1.0, 0.03, 15.2, -Math.PI / 2, 0);
     const numTex = (function () {
       const c = document.createElement('canvas'); c.width = 512; c.height = 512;
       const x = c.getContext('2d');
@@ -859,7 +858,7 @@
       map: numTex, transparent: true, depthWrite: false, opacity: 0.9, toneMapped: true
     }));
     num.rotation.x = -Math.PI / 2; num.rotation.z = 0.22;
-    num.position.set(1.0, 0.02, 15.2);
+    num.position.set(1.0, 0.04, 15.2);
     scene.add(num);
 
     /* ---- corridors ---- */
@@ -990,8 +989,8 @@
     moon.shadow.mapSize.set(2048, 2048);
     const sc = moon.shadow.camera;
     sc.left = -38; sc.right = 38; sc.top = 38; sc.bottom = -38; sc.near = 1; sc.far = 130;
-    moon.shadow.bias = -0.0009;
-    moon.shadow.normalBias = 0.03;
+    moon.shadow.bias = -0.0004;
+    moon.shadow.normalBias = 0.055;
     LV.sun = moon;
 
     function warm(x, y, z, intensity, dist, color) {

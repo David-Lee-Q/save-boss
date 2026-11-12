@@ -317,8 +317,24 @@
       armR.shoulder.rotation.x = 0.15; armR.elbow.rotation.x = -0.2;
     }
 
-    rig.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    rig.root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });
     return rig;
+  }
+
+  let blobTex = null;
+  function getBlobTex() {
+    if (blobTex) return blobTex;
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const x = c.getContext('2d');
+    const g = x.createRadialGradient(64, 64, 4, 64, 64, 62);
+    g.addColorStop(0, 'rgba(0,0,0,.55)');
+    g.addColorStop(0.55, 'rgba(0,0,0,.28)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+    blobTex = new THREE.CanvasTexture(c);
+    blobTex.colorSpace = THREE.NoColorSpace;
+    return blobTex;
   }
 
   /* ============================================================== character */
@@ -339,6 +355,13 @@
       this.flashT = 0;
       this.deadT = 0;
       this.scene.add(this.rig.root);
+      this.blob = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.95, 0.95),
+        new THREE.MeshBasicMaterial({ map: getBlobTex(), transparent: true, opacity: 0.6, depthWrite: false, toneMapped: false })
+      );
+      this.blob.rotation.x = -Math.PI / 2;
+      this.blob.renderOrder = 1;
+      this.scene.add(this.blob);
       this.sync(0);
     }
 
@@ -348,6 +371,7 @@
       const r = this.rig;
       r.root.position.copy(this.pos);
       r.root.rotation.y = this.ry;
+      if (this.blob) this.blob.position.set(this.pos.x, this.pos.y + 0.041, this.pos.z);
     }
 
     /* procedural animation: walk cycle + aim + idle breath */
