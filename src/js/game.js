@@ -500,7 +500,7 @@
       onEnterRoom(room);
     } else if (!room && HUD.lastLocRoom !== 'corridor') {
       HUD.lastLocRoom = 'corridor';
-      HUD.location('走廊', '42F · 几猫中心');
+      HUD.location('走廊', '42F · 海程中心');
     }
     // track visited rooms for the debrief
     if (room) {
@@ -716,7 +716,7 @@
   }
 
   function onEnterRoom(room) {
-    HUD.location(room.name, `${room.en} · 42F 几猫中心`);
+    HUD.location(room.name, `${room.en} · 42F 海程中心`);
     if (room.id === 'ceo' && G.robbersLeft > 0) {
       HUD.say('陈立群 · CEO', '别过来！他们还有人！', 3.2);
     }
@@ -1067,9 +1067,9 @@
       <div class="m-title-main">
         <div class="m-brand">
           <div class="mark"><b>几</b></div>
-          <div class="co"><b>几猫资本</b><br>JIMAO CAPITAL · 42F 危机响应</div>
+          <div class="co"><b>海程资本</b><br>HAICHENG CAPITAL · 42F 危机响应</div>
         </div>
-        <div class="m-eyebrow"><span class="m-tag rust">LEVEL 4</span><span>几猫中心 · 42 层</span><span class="m-dim">22:47 · 封锁中</span></div>
+        <div class="m-eyebrow"><span class="m-tag rust">LEVEL 4</span><span>海程中心 · 42 层</span><span class="m-dim">22:47 · 封锁中</span></div>
         <h1 class="m-word">抢救<span class="m-subtitle">老板</span></h1>
         <p class="m-premise">一伙劫匪在收盘后封锁了 42 层，老板被困在 CEO 办公室。<br>逐间清剿劫匪——清空全层后，去 CEO 办公室找到他。</p>
         <div class="m-brief">
@@ -1192,7 +1192,7 @@
     </div>`,
     about: `
     <section class="m-screen m-card" data-s="about" aria-label="关于">
-      <div class="m-k">几猫资本 · 42 层</div>
+      <div class="m-k">海程资本 · 42 层</div>
       <h2 class="m-h">关于</h2>
       <p class="m-line">一个室内第一人称营救任务：五间办公室、十名劫匪、一位老板。</p>
       <div class="dossier"><b>提示</b> · 听声音。枪声会把整层楼的劫匪引向你；救出的人质会自己跑向电梯。</div>
@@ -1371,7 +1371,7 @@
     weapon.gun.visible = true;
     HUD.lastLocRoom = null;
     HUD.el.hud.classList.add('on');
-    HUD.location('前台大堂', 'RECEPTION · 42F 几猫中心');
+    HUD.location('前台大堂', 'RECEPTION · 42F 海程中心');
     G.graceT = 4;
     SFX.setAmbient(1);
     // request pointer lock (needs a user gesture — the deploy click counts)

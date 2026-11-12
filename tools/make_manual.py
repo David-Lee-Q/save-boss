@@ -166,7 +166,7 @@ r.font.color.rgb = GREY
 p = doc.add_paragraph()
 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 p.paragraph_format.space_before = Pt(55)
-r = p.add_run('几猫中心 · 42F')
+r = p.add_run('海程中心 · 42F')
 r.font.size = Pt(22)
 r.bold = True
 r.font.color.rgb = ACCENT
@@ -189,7 +189,7 @@ doc.add_page_break()
 
 # ---------------------------------------------------------------- 1
 heading('1  故事背景')
-para('22:47，几猫中心 42 层的下班时间。')
+para('22:47，海程中心 42 层的下班时间。')
 para('一伙持械人员从货梯进入楼层，切断了门禁与监控，控制了前台、员工区与两间高管办公室。电梯被锁定在本层，手机信号被屏蔽。')
 para('你是当晚值班的危机响应人员，随身只有一把执勤卡宾枪。楼层里有 10 名劫匪、5 名没能离开的同事，以及被困在 CEO 办公室的创始人陈立群。')
 para('你的任务：清剿全部劫匪，找到老板。', bold=True)
@@ -376,7 +376,7 @@ bullet('主要模块：level.js（场景与导航）、npc.js（角色与 AI）�
 p = doc.add_paragraph()
 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 p.paragraph_format.space_before = Pt(26)
-r = p.add_run('《抢救老板》V1.0 — 几猫中心 42F。玩得开心，记得把老板带出来。')
+r = p.add_run('《抢救老板》V1.0 — 海程中心 42F。玩得开心，记得把老板带出来。')
 r.font.size = Pt(10)
 r.font.color.rgb = GREY
 r.italic = True

@@ -327,7 +327,7 @@
         x.fillStyle = '#141a20'; x.fillRect(0, 0, w, h);
         x.fillStyle = 'rgba(255,179,71,.9)'; x.fillRect(30, 30, 90, 6);
         x.fillStyle = '#e6e2d8'; x.font = '700 34px "PingFang SC",sans-serif';
-        x.fillText('几猫中心 · 42F', 30, 88);
+        x.fillText('海程中心 · 42F', 30, 88);
         x.fillStyle = 'rgba(230,226,216,.55)'; x.font = '17px "PingFang SC",sans-serif';
         x.fillText('年度战略回顾   CONFIDENTIAL', 30, 120);
         for (let i = 0; i < 4; i++) {
@@ -529,7 +529,7 @@
       x.fillStyle = '#ffb347'; x.font = '600 30px "PingFang SC",sans-serif';
       x.fillText(sub, 48, 220);
       x.fillStyle = 'rgba(240,236,226,.35)'; x.font = '500 20px ui-monospace,monospace';
-      x.fillText('JIMAO TOWER · 42F', 48, h - 54);
+      x.fillText('HAICHENG TOWER · 42F', 48, h - 54);
       grain(x, w, h, 10);
     });
   };

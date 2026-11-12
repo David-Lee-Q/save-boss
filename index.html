@@ -525,7 +525,7 @@ kbd { display: inline-block; font: 500 10px/1 var(--f-mono); color: var(--bone);
 
   <div id="boot">
     <div class="boot-mark">抢救老板</div>
-    <div class="boot-sub" id="bootMsg">正在载入 42 层 · 几猫中心</div>
+    <div class="boot-sub" id="bootMsg">正在载入 42 层 · 海程中心</div>
     <div class="boot-bar"><i id="bootFill"></i></div>
   </div>
 
@@ -1159,7 +1159,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         x.fillStyle = '#141a20'; x.fillRect(0, 0, w, h);
         x.fillStyle = 'rgba(255,179,71,.9)'; x.fillRect(30, 30, 90, 6);
         x.fillStyle = '#e6e2d8'; x.font = '700 34px "PingFang SC",sans-serif';
-        x.fillText('几猫中心 · 42F', 30, 88);
+        x.fillText('海程中心 · 42F', 30, 88);
         x.fillStyle = 'rgba(230,226,216,.55)'; x.font = '17px "PingFang SC",sans-serif';
         x.fillText('年度战略回顾   CONFIDENTIAL', 30, 120);
         for (let i = 0; i < 4; i++) {
@@ -1361,7 +1361,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       x.fillStyle = '#ffb347'; x.font = '600 30px "PingFang SC",sans-serif';
       x.fillText(sub, 48, 220);
       x.fillStyle = 'rgba(240,236,226,.35)'; x.font = '500 20px ui-monospace,monospace';
-      x.fillText('JIMAO TOWER · 42F', 48, h - 54);
+      x.fillText('HAICHENG TOWER · 42F', 48, h - 54);
       grain(x, w, h, 10);
     });
   };
@@ -2140,7 +2140,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     bx('light', 0.06, 0.44, 6.0, 0.3, 3.45, 17.2);
     const logo = new THREE.Mesh(
       new THREE.PlaneGeometry(4.6, 1.6),
-      new THREE.MeshBasicMaterial({ map: TEX.sign('几猫中心', 'JIMAO TOWER · 42F', { dark: true, plain: true }), transparent: true, toneMapped: false })
+      new THREE.MeshBasicMaterial({ map: TEX.sign('海程中心', 'HAICHENG TOWER · 42F', { dark: true, plain: true }), transparent: true, toneMapped: false })
     );
     logo.position.set(0.32, 2.5, 17.2); logo.rotation.y = Math.PI / 2;
     scene.add(logo);
@@ -2150,7 +2150,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     bx('woodDark', 0.5, 0.8, 5.8, 3.85, 0.42, 17.6);
     // brand mark on the front of the desk
     const dm = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 0.52),
-      new THREE.MeshBasicMaterial({ map: TEX.plate('几猫', 'JIMAO'), transparent: true, toneMapped: false }));
+      new THREE.MeshBasicMaterial({ map: TEX.plate('海程', 'HAICHENG'), transparent: true, toneMapped: false }));
     dm.position.set(2.94, 0.62, 17.6); dm.rotation.y = -Math.PI / 2;
     scene.add(dm);
 
@@ -2537,7 +2537,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     chair(8.4, 15.4, Math.PI, 'exec');
     plant(-7.8, 13.4, 1.5); plant(-7.8, 21.0, 1.3); plant(11.4, 13.4, 1.2);
     // directory board
-    const dir = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.5), new THREE.MeshStandardMaterial({ map: TEX.sign('楼层索引', '42F · 几猫资本 / 43F · 董事会', { dark: false }), roughness: 0.5 }));
+    const dir = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.5), new THREE.MeshStandardMaterial({ map: TEX.sign('楼层索引', '42F · 海程资本 / 43F · 董事会', { dark: false }), roughness: 0.5 }));
     dir.position.set(-8.86, 1.85, 17.4); dir.rotation.y = Math.PI / 2;
     scene.add(dir);
     // magazines + dropped laptop
@@ -2564,7 +2564,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       x.fillText('42F', 256, 236);
       x.font = '600 44px "Microsoft YaHei",sans-serif';
       x.fillStyle = 'rgba(255,197,122,.22)';
-      x.fillText('JIMAO TOWER', 256, 396);
+      x.fillText('HAICHENG TOWER', 256, 396);
       const t = new THREE.CanvasTexture(c);
       t.colorSpace = THREE.SRGBColorSpace;
       return t;
@@ -4872,7 +4872,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       onEnterRoom(room);
     } else if (!room && HUD.lastLocRoom !== 'corridor') {
       HUD.lastLocRoom = 'corridor';
-      HUD.location('走廊', '42F · 几猫中心');
+      HUD.location('走廊', '42F · 海程中心');
     }
     // track visited rooms for the debrief
     if (room) {
@@ -5088,7 +5088,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   }
 
   function onEnterRoom(room) {
-    HUD.location(room.name, `${room.en} · 42F 几猫中心`);
+    HUD.location(room.name, `${room.en} · 42F 海程中心`);
     if (room.id === 'ceo' && G.robbersLeft > 0) {
       HUD.say('陈立群 · CEO', '别过来！他们还有人！', 3.2);
     }
@@ -5439,9 +5439,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       <div class="m-title-main">
         <div class="m-brand">
           <div class="mark"><b>几</b></div>
-          <div class="co"><b>几猫资本</b><br>JIMAO CAPITAL · 42F 危机响应</div>
+          <div class="co"><b>海程资本</b><br>HAICHENG CAPITAL · 42F 危机响应</div>
         </div>
-        <div class="m-eyebrow"><span class="m-tag rust">LEVEL 4</span><span>几猫中心 · 42 层</span><span class="m-dim">22:47 · 封锁中</span></div>
+        <div class="m-eyebrow"><span class="m-tag rust">LEVEL 4</span><span>海程中心 · 42 层</span><span class="m-dim">22:47 · 封锁中</span></div>
         <h1 class="m-word">抢救<span class="m-subtitle">老板</span></h1>
         <p class="m-premise">一伙劫匪在收盘后封锁了 42 层，老板被困在 CEO 办公室。<br>逐间清剿劫匪——清空全层后，去 CEO 办公室找到他。</p>
         <div class="m-brief">
@@ -5564,7 +5564,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     </div>`,
     about: `
     <section class="m-screen m-card" data-s="about" aria-label="关于">
-      <div class="m-k">几猫资本 · 42 层</div>
+      <div class="m-k">海程资本 · 42 层</div>
       <h2 class="m-h">关于</h2>
       <p class="m-line">一个室内第一人称营救任务：五间办公室、十名劫匪、一位老板。</p>
       <div class="dossier"><b>提示</b> · 听声音。枪声会把整层楼的劫匪引向你；救出的人质会自己跑向电梯。</div>
@@ -5743,7 +5743,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     weapon.gun.visible = true;
     HUD.lastLocRoom = null;
     HUD.el.hud.classList.add('on');
-    HUD.location('前台大堂', 'RECEPTION · 42F 几猫中心');
+    HUD.location('前台大堂', 'RECEPTION · 42F 海程中心');
     G.graceT = 4;
     SFX.setAmbient(1);
     // request pointer lock (needs a user gesture — the deploy click counts)

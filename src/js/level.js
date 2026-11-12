@@ -426,7 +426,7 @@
     bx('light', 0.06, 0.44, 6.0, 0.3, 3.45, 17.2);
     const logo = new THREE.Mesh(
       new THREE.PlaneGeometry(4.6, 1.6),
-      new THREE.MeshBasicMaterial({ map: TEX.sign('几猫中心', 'JIMAO TOWER · 42F', { dark: true, plain: true }), transparent: true, toneMapped: false })
+      new THREE.MeshBasicMaterial({ map: TEX.sign('海程中心', 'HAICHENG TOWER · 42F', { dark: true, plain: true }), transparent: true, toneMapped: false })
     );
     logo.position.set(0.32, 2.5, 17.2); logo.rotation.y = Math.PI / 2;
     scene.add(logo);
@@ -436,7 +436,7 @@
     bx('woodDark', 0.5, 0.8, 5.8, 3.85, 0.42, 17.6);
     // brand mark on the front of the desk
     const dm = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 0.52),
-      new THREE.MeshBasicMaterial({ map: TEX.plate('几猫', 'JIMAO'), transparent: true, toneMapped: false }));
+      new THREE.MeshBasicMaterial({ map: TEX.plate('海程', 'HAICHENG'), transparent: true, toneMapped: false }));
     dm.position.set(2.94, 0.62, 17.6); dm.rotation.y = -Math.PI / 2;
     scene.add(dm);
 
@@ -823,7 +823,7 @@
     chair(8.4, 15.4, Math.PI, 'exec');
     plant(-7.8, 13.4, 1.5); plant(-7.8, 21.0, 1.3); plant(11.4, 13.4, 1.2);
     // directory board
-    const dir = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.5), new THREE.MeshStandardMaterial({ map: TEX.sign('楼层索引', '42F · 几猫资本 / 43F · 董事会', { dark: false }), roughness: 0.5 }));
+    const dir = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.5), new THREE.MeshStandardMaterial({ map: TEX.sign('楼层索引', '42F · 海程资本 / 43F · 董事会', { dark: false }), roughness: 0.5 }));
     dir.position.set(-8.86, 1.85, 17.4); dir.rotation.y = Math.PI / 2;
     scene.add(dir);
     // magazines + dropped laptop
@@ -850,7 +850,7 @@
       x.fillText('42F', 256, 236);
       x.font = '600 44px "Microsoft YaHei",sans-serif';
       x.fillStyle = 'rgba(255,197,122,.22)';
-      x.fillText('JIMAO TOWER', 256, 396);
+      x.fillText('HAICHENG TOWER', 256, 396);
       const t = new THREE.CanvasTexture(c);
       t.colorSpace = THREE.SRGBColorSpace;
       return t;
