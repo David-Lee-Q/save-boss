@@ -57,20 +57,22 @@
   H.buildCompass = function () {
     const tape = H.el.tape;
     const pxPerDeg = 6.0;
-    const SPAN = 360;
     H.pxPerDeg = pxPerDeg;
-    tape.style.width = (SPAN * pxPerDeg) + 'px';
+    // three copies so the tape is continuous across 000/360 (no empty edges)
+    tape.style.width = (360 * 3 * pxPerDeg) + 'px';
     let html = '';
-    for (let d = 0; d < SPAN; d += 5) {
-      const x = d * pxPerDeg;
-      const cls = d % 45 === 0 ? 'mj' : d % 15 === 0 ? 'md' : 'mn';
-      html += `<i class="${cls}" style="left:${x}px"></i>`;
-      if (d % 45 === 0) {
-        const label = H.CARD[(d / 45) % 8];
-        html += `<b class="card" style="left:${x}px">${label}</b>`;
-        html += `<b class="num" style="left:${x}px;top:15px">${String(d).padStart(3, '0')}</b>`;
-      } else if (d % 15 === 0) {
-        html += `<b class="num" style="left:${x}px;top:15px">${d % 360}</b>`;
+    for (let c = -1; c <= 1; c++) {
+      for (let d = 0; d < 360; d += 5) {
+        const x = (d + (c + 1) * 360) * pxPerDeg;
+        const cls = d % 45 === 0 ? 'mj' : d % 15 === 0 ? 'md' : 'mn';
+        html += `<i class="${cls}" style="left:${x}px"></i>`;
+        if (d % 45 === 0) {
+          const label = H.CARD[(d / 45) % 8];
+          html += `<b class="card" style="left:${x}px">${label}</b>`;
+          html += `<b class="num" style="left:${x}px;top:15px">${String(d).padStart(3, '0')}</b>`;
+        } else if (d % 15 === 0) {
+          html += `<b class="num" style="left:${x}px;top:15px">${d % 360}</b>`;
+        }
       }
     }
     tape.innerHTML = html;
@@ -111,7 +113,8 @@
     // --- compass
     let yaw = p.yaw;                   // three.js: 0 looks down -Z
     let deg = ((-yaw * 180 / Math.PI) % 360 + 360) % 360;   // heading, 0 = north(-Z)
-    H.el.tape.style.transform = `translateX(${-(deg * H.pxPerDeg) + 210}px)`;
+    // bearing 000 sits at the start of the middle copy; keep 210 px of tape to its left
+    H.el.tape.style.transform = `translateX(${-(deg * H.pxPerDeg) - 1950}px)`;
     H.el.heading.textContent = String(Math.round(deg) % 360).padStart(3, '0');
 
     // objective markers projected

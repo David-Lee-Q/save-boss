@@ -148,6 +148,8 @@
     setBoot(88, '正在校准视线');
 
     setupMenus();
+    applyQuality();
+    resize();
     setBoot(100, '就绪');
     setTimeout(() => {
       $('boot').classList.add('done');
@@ -264,7 +266,15 @@
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     document.addEventListener('pointerlockchange', () => {
-      input.pointerLocked = document.pointerLockElement === canvas;
+      const locked = document.pointerLockElement === canvas;
+      input.pointerLocked = locked;
+      if (locked) {
+        G.hadLock = true;
+      } else if (G.hadLock && G.running) {
+        // Esc / tab switch drops the lock: never leave the player aiming blind
+        G.hadLock = false;
+        pauseGame();
+      }
     });
 
     document.addEventListener('mousemove', (e) => {
@@ -380,7 +390,9 @@
   function resize() {
     if (!renderer) return;
     const w = window.innerWidth, h = window.innerHeight;
-    const dpr = Math.min(window.devicePixelRatio || 1, settings.quality === 'low' ? 0.8 : settings.quality === 'medium' ? 1.25 : 2);
+    const cap = settings.quality === 'low' ? 0.9 : settings.quality === 'medium' ? 1.3 : 2;
+    const scale = post ? (post.scale || 1) : 1;
+    const dpr = Math.max(0.55, Math.min(window.devicePixelRatio || 1, cap) * scale);
     renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
@@ -1257,10 +1269,27 @@
   function setQuality(q, silent) {
     settings.quality = q;
     menusEl.querySelectorAll('[data-q]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.q === q ? 'true' : 'false'));
-    if (q === 'low') { post.bloom = false; post.grain = 0.02; }
-    else if (q === 'medium') { post.bloom = true; post.grain = 0.022; }
-    else { post.bloom = true; post.grain = 0.026; }
+    applyQuality();
     if (!silent) { saveSettings(); resize(); }
+  }
+
+  function applyQuality() {
+    const q = settings.quality;
+    if (post) {
+      post.bloom = q !== 'low';
+      post.grain = q === 'low' ? 0.02 : q === 'medium' ? 0.022 : 0.026;
+    }
+    if (!renderer) return;
+    const shadows = q !== 'low';
+    renderer.shadowMap.enabled = shadows;
+    if (LV.sun) {
+      LV.sun.castShadow = shadows;
+      const size = q === 'high' ? 2048 : 1024;
+      if (LV.sun.shadow.mapSize.x !== size) {
+        LV.sun.shadow.mapSize.set(size, size);
+        if (LV.sun.shadow.map) { LV.sun.shadow.map.dispose(); LV.sun.shadow.map = null; }
+      }
+    }
   }
 
   function toggleMute() {
@@ -1346,7 +1375,13 @@
     G.graceT = 4;
     SFX.setAmbient(1);
     // request pointer lock (needs a user gesture — the deploy click counts)
-    try { canvas.requestPointerLock(); } catch (e) { }
+    try {
+      const pr = canvas.requestPointerLock();
+      if (pr && pr.catch) pr.catch(() => { });
+    } catch (e) { }
+    setTimeout(() => {
+      if (G.running && !input.pointerLocked && !isTouch) HUD.msg('点击画面锁定鼠标视角', 3);
+    }, 2600);
     if (!G.introDone) {
       G.introDone = true;
       setTimeout(() => HUD.say('队长 · 无线电', '42 层被封锁了。五个房间都要过一遍，找到陈董再撤。', 5), 900);
@@ -1357,7 +1392,10 @@
   function resumeGame() {
     G.running = true;
     G.paused = false;
-    try { canvas.requestPointerLock(); } catch (e) { }
+    try {
+      const pr = canvas.requestPointerLock();
+      if (pr && pr.catch) pr.catch(() => { });
+    } catch (e) { }
     SFX.setAmbient(1);
   }
 
