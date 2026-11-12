@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>抢救老板</title>
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="view" tabindex="0"></canvas>
+  <div class="fx-vig" aria-hidden="true"></div>
+  <div class="fx-grain" aria-hidden="true"></div>
+  <div class="fx-hurt" id="hurt" aria-hidden="true"></div>
+
+  <div id="ui">
+    <div class="hud" id="hud">
+      <div class="h-compass">
+        <div class="h-tape-wrap">
+          <div class="h-tape" id="tape"></div>
+          <div class="h-needle"></div>
+          <div class="h-heading" id="heading">000</div>
+        </div>
+        <div class="h-cmarks" id="cmarks"></div>
+      </div>
+
+      <div class="h-obj" id="obj">
+        <div class="h-k">当前目标</div>
+        <div class="h-obj-t" id="objTitle">清剿 42 层劫匪</div>
+        <div class="h-obj-sub" id="objSub">剩余 9 名</div>
+        <div class="h-rooms" id="rooms"></div>
+      </div>
+
+      <div class="h-alert" id="alert"><span>警  报</span><b>劫匪已发现你</b></div>
+
+      <div class="h-cross" id="cross">
+        <i class="c-t"></i><i class="c-b"></i><i class="c-l"></i><i class="c-r"></i><i class="c-dot"></i>
+      </div>
+      <div class="h-hit" id="hit"><i></i><i></i><i></i><i></i></div>
+      <div class="h-arcs" id="arcs"></div>
+
+      <div class="h-prompt" id="prompt">
+        <svg viewBox="0 0 48 48" aria-hidden="true">
+          <circle class="bg" cx="24" cy="24" r="20"></circle>
+          <circle class="fg" id="promptArc" cx="24" cy="24" r="20" stroke-dasharray="125.6" stroke-dashoffset="125.6" transform="rotate(-90 24 24)"></circle>
+        </svg>
+        <div class="h-key" id="promptKey">E</div>
+        <div class="h-plabel" id="promptLabel">营救</div>
+      </div>
+
+      <div class="h-feed" id="feed"></div>
+      <div class="h-msg" id="msg"></div>
+
+      <div class="h-health" id="health">
+        <div class="h-k">状态</div>
+        <div class="h-hp-row">
+          <div class="h-hp-n" id="hpN">100</div>
+          <div class="h-hp-bar" id="hpBar"></div>
+        </div>
+      </div>
+
+      <div class="h-ammo" id="ammo">
+        <div class="h-cue" id="cue">按 R 换弹</div>
+        <div class="h-ammo-row"><div class="h-ammo-n" id="ammoN">30</div><div class="h-ammo-r" id="ammoR">30</div></div>
+        <div class="h-pips" id="pips"></div>
+        <div class="h-wname">MK-9 卡宾枪</div>
+      </div>
+
+      <div class="h-marks" id="marks"></div>
+    </div>
+
+    <div class="comms" id="comms">
+      <span class="comms-who" id="commsWho">队 长</span>
+      <span class="comms-t" id="commsText"></span>
+    </div>
+
+    <div class="touch" id="touch">
+      <div class="t-stick" id="stick"><div class="t-ring"></div><div class="t-nub" id="nub"></div></div>
+      <button class="t-btn t-fire" data-touch="fire"><span>开火</span></button>
+      <button class="t-btn t-ads" data-touch="ads"><span>瞄准</span></button>
+      <button class="t-btn t-jump" data-touch="jump"><span>跳跃</span></button>
+      <button class="t-btn t-reload" data-touch="reload"><span>换弹</span></button>
+      <button class="t-btn t-interact" id="tInteract" data-touch="interact"><span>交互</span></button>
+      <button class="t-btn t-pause" data-touch="pause"><span>Ⅱ</span></button>
+    </div>
+  </div>
+
+  <div class="loc-card" id="loc"><i></i><b id="locT"></b><span id="locS"></span></div>
+
+  <div id="menus"></div>
+
+  <div id="boot">
+    <div class="boot-mark">抢救老板</div>
+    <div class="boot-sub" id="bootMsg">正在载入 42 层 · 几猫中心</div>
+    <div class="boot-bar"><i id="bootFill"></i></div>
+  </div>
+
+  <div id="fatal"></div>
+</div>
+
+<script src="js/three.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/post.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/level.js"></script>
+<script src="js/weapon.js"></script>
+<script src="js/npc.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

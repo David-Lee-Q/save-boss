@@ -1,0 +1,95 @@
+/* game.css — 抢救老板 · office wing (adds to base.css) */
+
+/* ---- film finish ---- */
+.fx-vig { position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background: radial-gradient(ellipse at 50% 48%, rgba(0,0,0,0) 42%, rgba(0,0,0,.30) 82%, rgba(0,0,0,.62) 100%); }
+.fx-grain { position: absolute; inset: -40%; pointer-events: none; z-index: 3; opacity: .05; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='160' height='160' filter='url(%23n)' opacity='.55'/></svg>");
+  animation: grain 1.1s steps(3) infinite; }
+@keyframes grain { 0%{transform:translate3d(0,0,0)} 33%{transform:translate3d(-2%,1%,0)} 66%{transform:translate3d(1%,-2%,0)} 100%{transform:translate3d(0,0,0)} }
+.fx-hurt { position: absolute; inset: 0; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .5s ease;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255,0,0,0) 40%, rgba(150,10,4,.55) 100%); }
+.fx-hurt.on { opacity: 1; transition-duration: .08s; }
+
+/* ---- objective panel: room checklist ---- */
+.h-obj { max-width: min(320px, 46vw); }
+.h-obj-sub { font: 500 12px/1.3 var(--f-mono); letter-spacing: .06em; color: var(--bone-dim); margin: -3px 0 10px; }
+.h-rooms { display: grid; gap: 4px; }
+.h-room { display: flex; align-items: center; gap: 8px; font: 600 11px/1.25 var(--f-label); letter-spacing: .1em; color: rgba(232,228,218,.62); }
+.h-room i { width: 7px; height: 7px; border: 1.4px solid rgba(232,228,218,.55); transform: rotate(45deg); flex: none; }
+.h-room b { font: 500 11px/1.25 var(--f-mono); letter-spacing: .02em; color: var(--bone-dim); margin-left: auto; font-weight: 500; }
+.h-room.clear { color: var(--signal); }
+.h-room.clear i { background: var(--signal); border-color: var(--signal); }
+.h-room.clear b { color: var(--signal); }
+.h-room.here { color: var(--bone); }
+.h-room.here i { border-color: var(--bone); box-shadow: 0 0 6px rgba(232,228,218,.5); }
+.h-room .tag { opacity: .55; }
+.h-room.unknown { color: rgba(232,228,218,.34); }
+.h-room.unknown i { border-color: rgba(232,228,218,.22); }
+.h-room.unknown b { color: rgba(232,228,218,.3); }
+
+/* ---- alert banner ---- */
+.h-alert { position: absolute; left: 50%; top: calc(70px + var(--sat)); transform: translate(-50%, -6px); opacity: 0; pointer-events: none;
+  display: flex; align-items: center; gap: 12px; padding: 7px 14px 6px; background: linear-gradient(90deg, rgba(255,90,64,0), rgba(140,20,8,.65), rgba(255,90,64,0));
+  transition: opacity .25s, transform .25s; }
+.h-alert.on { opacity: 1; transform: translate(-50%, 0); }
+.h-alert span { font: 900 16px/1 var(--f-display); letter-spacing: .3em; color: #ffd9cf; text-shadow: 0 0 10px rgba(255,60,30,.6); }
+.h-alert b { font: 500 11px/1 var(--f-label); letter-spacing: .16em; color: rgba(255,220,210,.9); }
+
+/* ---- prompt geometry overrides ---- */
+.h-prompt { top: 58%; gap: 10px; }
+.h-prompt .h-key { width: 48px; height: 48px; line-height: 48px; font: 700 17px/48px var(--f-display); }
+.h-prompt .h-key.wide { font-size: 11px; letter-spacing: .06em; }
+.h-prompt .h-plabel { border-left-width: 3px; }
+.h-prompt.busy .h-plabel { color: var(--signal); }
+
+/* ---- damage arcs a touch hotter ---- */
+.h-arc path { stroke: #ff6b4a; }
+
+/* ---- comms sits above the prompt ---- */
+.comms { bottom: calc(21% + var(--sab)); }
+
+/* ---- menus: brand lockup ---- */
+.m-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.m-brand .mark { width: 30px; height: 30px; border: 1.6px solid var(--signal); display: flex; align-items: center; justify-content: center;
+  font: 900 13px/1 var(--f-display); letter-spacing: 0; color: var(--signal); transform: rotate(45deg); }
+.m-brand .mark b { transform: rotate(-45deg); font-weight: 900; }
+.m-brand .co { font: 600 11px/1.5 var(--f-label); letter-spacing: .22em; color: var(--bone-dim); text-transform: uppercase; }
+.m-brand .co b { color: var(--bone); font-weight: 700; }
+.m-tag.rust { background: var(--alarm); color: #1a0603; }
+
+.m-word { letter-spacing: .1em !important; }
+.m-title[data-tone="alarm"] .m-word { color: #fff2ec; }
+.m-brief { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; margin-top: 18px; max-width: 560px; }
+.m-brief > div { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font: 500 12px/1.4 var(--f-label); letter-spacing: .08em; color: var(--bone-dim); }
+.m-brief > div b { color: var(--bone); font: 500 12px/1.4 var(--f-mono); letter-spacing: .02em; }
+.dossier { margin-top: 14px; padding-left: 12px; border-left: 2px solid var(--signal); font: 400 11px/1.65 var(--f-mono); letter-spacing: .04em; color: var(--steel); max-width: 56ch; }
+.dossier b { color: var(--signal); font-weight: 600; }
+
+/* room chips on the debrief */
+.m-rooms { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; margin: 4px 0 14px; }
+.m-rooms > div { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line);
+  font: 500 12px/1.3 var(--f-label); letter-spacing: .1em; color: var(--steel); }
+.m-rooms > div b { font: 600 11px/1 var(--f-mono); color: var(--signal); letter-spacing: .04em; }
+.m-rooms > div.pending b { color: var(--alarm); }
+
+.m-card.m-debrief { width: min(600px, calc(100vw - var(--gl) - var(--gr))); }
+.m-debrief .m-h { font-size: clamp(26px, 6vw, 40px) !important; white-space: normal; }
+.m-rating b { font-size: 34px; }
+
+/* title: this wing's details */
+.m-wing { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font: 500 12px/1.5 var(--f-label); letter-spacing: .1em; color: var(--steel); }
+.m-wing i { font-style: normal; color: var(--alarm); }
+
+/* small screens */
+@media (max-width: 760px) {
+  .h-rooms { display: none; }
+  .h-obj-sub { margin-bottom: 0; }
+  .m-brief { grid-template-columns: 1fr; }
+  .m-rooms { grid-template-columns: 1fr; }
+  .fx-grain { display: none; }
+}
+@media (max-height: 560px) {
+  .h-rooms { display: none; }
+  .m-brand { display: none; }
+}
