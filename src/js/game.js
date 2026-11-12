@@ -828,7 +828,9 @@
     rr.innerHTML = HUD.roomOrder.map((id) => {
       const room = LV.rooms.find((r) => r.id === id);
       const st = G.roomState[id];
-      return `<div class="${st.cleared ? '' : 'pending'}"><span>${room.name}</span><b>${st.cleared ? '已清空' : st.killed + '/' + st.total}</b></div>`;
+      const done = st.cleared || st.total === 0;
+      const label = st.total === 0 ? '安全' : (st.cleared ? '已清空' : st.killed + '/' + st.total);
+      return `<div class="${done ? '' : 'pending'}"><span>${room.name}</span><b>${label}</b></div>`;
     }).join('');
 
     setTimeout(() => showMenu('complete'), 700);
