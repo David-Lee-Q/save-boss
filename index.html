@@ -462,6 +462,18 @@ kbd { display: inline-block; font: 500 10px/1 var(--f-mono); color: var(--bone);
 .m-diff button[aria-pressed="true"] { background: var(--signal); color: var(--ink); }
 @media (max-width: 760px) { .m-diff { max-width: none; } .m-diff-k { display: none; } }
 
+
+/* ---- minimap (top-right) ---- */
+.h-map { position: absolute; right: var(--gr); top: calc(14px + var(--sat)); width: 186px; padding: 8px 8px 6px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(11,13,15,.78), rgba(11,13,15,.52)); border: 1px solid var(--line); border-top: 2px solid var(--signal); }
+.h-map canvas { display: block; width: 170px; height: 144px; }
+.h-map-t { display: flex; justify-content: space-between; align-items: baseline; margin-top: 5px;
+  font: 600 9px/1 var(--f-label); letter-spacing: .2em; color: var(--steel); text-transform: uppercase; }
+.h-map-t b { font: 700 10px/1 var(--f-mono); color: var(--signal); letter-spacing: .1em; }
+.is-touch .h-map { display: none; }
+@media (max-width: 900px) { .h-map { display: none; } }
+@media (max-height: 560px) { .h-map { display: none; } }
+
 </style>
 </head>
 <body>
@@ -480,6 +492,11 @@ kbd { display: inline-block; font: 500 10px/1 var(--f-mono); color: var(--bone);
           <div class="h-heading" id="heading">000</div>
         </div>
         <div class="h-cmarks" id="cmarks"></div>
+      </div>
+
+      <div class="h-map" id="map">
+        <canvas id="mapcv" width="360" height="304"></canvas>
+        <div class="h-map-t"><span>42F · 平面图</span><b>N</b></div>
       </div>
 
       <div class="h-obj" id="obj">
@@ -4385,6 +4402,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     H.buildHealth();
     H.buildPips();
     H.buildRooms();
+    H.buildMap();
 
     H.crossPieces = [...document.querySelectorAll('#cross i')];
     H.arcPool = [];
@@ -4476,6 +4494,129 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     for (const id of order) H.roomEls[id] = H.el.rooms.querySelector(`[data-room="${id}"]`);
   };
 
+  /* ---------------------------------------------------------------- minimap */
+  H.buildMap = function () {
+    const cv = document.getElementById('mapcv');
+    if (!cv) return;
+    H.mapCv = cv;
+    H.mapCtx = cv.getContext('2d');
+    const W = 360, Hh = 304, P = 14;
+    H.mapW = W; H.mapH = Hh;
+    const s = Math.min((W - P * 2) / 52, (Hh - P * 2) / 44);
+    H.mapS = s;
+    const ox = (W - 52 * s) / 2, oz = (Hh - 44 * s) / 2;
+    H.mapX = (x) => ox + (x + 26) * s;
+    H.mapY = (z) => oz + (z + 22) * s;
+
+    const base = document.createElement('canvas');
+    base.width = W; base.height = Hh;
+    const g = base.getContext('2d');
+    // floor plate
+    g.fillStyle = 'rgba(232,228,218,.04)';
+    g.fillRect(H.mapX(-26), H.mapY(-22), 52 * s, 44 * s);
+    // walls (colliders tall enough to be architecture)
+    g.fillStyle = 'rgba(214,209,199,.6)';
+    for (const c of LV.colliders) {
+      if (c.y1 < 2.8) continue;
+      const x = H.mapX(c.x1), y = H.mapY(c.z1);
+      const w = Math.max(1, (c.x2 - c.x1) * s), h = Math.max(1, (c.z2 - c.z1) * s);
+      g.fillRect(x, y, w, h);
+    }
+    // glass is drawn brighter so the meeting room reads
+    g.strokeStyle = 'rgba(160,205,230,.35)';
+    g.lineWidth = 1;
+    g.strokeRect(H.mapX(-26), H.mapY(-22), 52 * s, 44 * s);
+    H.mapBase = base;
+    H.mapAcc = 0;
+  };
+
+  H.updateMap = function (dt, G) {
+    const cv = H.mapCv, c = H.mapCtx;
+    if (!cv || !c) return;
+    H.mapAcc += dt;
+    if (H.mapAcc < 0.08) return;
+    H.mapAcc = 0;
+    const S = H.mapS;
+    c.clearRect(0, 0, H.mapW, H.mapH);
+
+    // room fills
+    for (const r of LV.rooms) {
+      const st = G.roomState[r.id];
+      if (!st) continue;
+      const known = st.discovered;
+      const x = H.mapX(r.rect.x1), y = H.mapY(r.rect.z1);
+      const w = (r.rect.x2 - r.rect.x1) * S, h = (r.rect.z2 - r.rect.z1) * S;
+      c.fillStyle = st.cleared ? 'rgba(255,179,71,.13)' : known ? 'rgba(255,179,71,.055)' : 'rgba(232,228,218,.015)';
+      c.fillRect(x, y, w, h);
+    }
+
+    c.drawImage(H.mapBase, 0, 0);
+
+    // labels
+    const label = { lobby: '大堂', open: '大厅', meet: '会议', ceo: 'CEO', cfo: 'CFO', pantry: '茶水' };
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    for (const r of LV.rooms) {
+      const st = G.roomState[r.id];
+      if (!st) continue;
+      c.font = '600 15px "PingFang SC","Microsoft YaHei",sans-serif';
+      c.fillStyle = st.discovered ? (st.cleared ? 'rgba(255,179,71,.95)' : 'rgba(232,228,218,.78)') : 'rgba(232,228,218,.22)';
+      c.fillText(st.discovered ? (label[r.id] || r.name) : '未搜索', H.mapX(r.cx), H.mapY(r.cz));
+    }
+
+    // hostages (known rooms only)
+    for (const h of (G.hostages || [])) {
+      if (h.freed) continue;
+      const st = G.roomState[h.room];
+      if (!st || !st.discovered) continue;
+      const x = H.mapX(h.pos.x), y = H.mapY(h.pos.z);
+      c.fillStyle = '#7fe3d0';
+      c.beginPath(); c.arc(x, y, 2.6, 0, 6.2832); c.fill();
+    }
+
+    // robbers: only those already alerted / in combat
+    for (const rb of (G.robbers || [])) {
+      if (rb.state === 3 || rb.state === 0) continue;
+      const x = H.mapX(rb.pos.x), y = H.mapY(rb.pos.z);
+      c.save(); c.translate(x, y); c.rotate(Math.PI / 4);
+      c.fillStyle = '#ff5a40';
+      c.fillRect(-3, -3, 6, 6);
+      c.restore();
+    }
+
+    // dropped weapons
+    for (const d of (G.drops || [])) {
+      if (d.taken) continue;
+      const st = G.roomState[LV.roomAt(d.x, d.z) ? LV.roomAt(d.x, d.z).id : ''];
+      if (!st || !st.discovered) continue;
+      c.fillStyle = 'rgba(255,179,71,.9)';
+      c.fillRect(H.mapX(d.x) - 2, H.mapY(d.z) - 2, 4, 4);
+    }
+
+    // boss marker after the floor is clear
+    if (!G.bossFreed && G.robbersLeft === 0 && G.boss) {
+      const x = H.mapX(G.boss.pos.x), y = H.mapY(G.boss.pos.z);
+      c.save(); c.translate(x, y); c.rotate(Math.PI / 4);
+      c.strokeStyle = '#ffd27a'; c.lineWidth = 2;
+      c.strokeRect(-4, -4, 8, 8);
+      c.restore();
+    }
+
+    // player + view cone
+    const px = H.mapX(G.player.pos.x), py = H.mapY(G.player.pos.z);
+    c.save();
+    c.translate(px, py);
+    c.rotate(-G.player.yaw);
+    const grd = c.createLinearGradient(0, 0, 0, -36);
+    grd.addColorStop(0, 'rgba(255,179,71,.24)');
+    grd.addColorStop(1, 'rgba(255,179,71,0)');
+    c.fillStyle = grd;
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(-18, -36); c.lineTo(18, -36); c.closePath(); c.fill();
+    c.fillStyle = '#ffb347';
+    c.beginPath(); c.moveTo(0, -7.5); c.lineTo(5.5, 6.5); c.lineTo(0, 3.2); c.lineTo(-5.5, 6.5); c.closePath(); c.fill();
+    c.restore();
+  };
+
   /* ---------------------------------------------------------------- update */
   H.update = function (dt, G) {
     const p = G.player;
@@ -4490,6 +4631,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 
     // objective markers projected
     H.updateMarks(dt, G);
+
+    // minimap
+    H.updateMap(dt, G);
 
     // --- crosshair spread
     const sp = G.weapon.currentSpread();

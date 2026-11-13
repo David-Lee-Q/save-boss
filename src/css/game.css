@@ -117,3 +117,15 @@
 .m-diff button:hover { color: var(--bone); background: rgba(232,228,218,.07); }
 .m-diff button[aria-pressed="true"] { background: var(--signal); color: var(--ink); }
 @media (max-width: 760px) { .m-diff { max-width: none; } .m-diff-k { display: none; } }
+
+
+/* ---- minimap (top-right) ---- */
+.h-map { position: absolute; right: var(--gr); top: calc(14px + var(--sat)); width: 186px; padding: 8px 8px 6px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(11,13,15,.78), rgba(11,13,15,.52)); border: 1px solid var(--line); border-top: 2px solid var(--signal); }
+.h-map canvas { display: block; width: 170px; height: 144px; }
+.h-map-t { display: flex; justify-content: space-between; align-items: baseline; margin-top: 5px;
+  font: 600 9px/1 var(--f-label); letter-spacing: .2em; color: var(--steel); text-transform: uppercase; }
+.h-map-t b { font: 700 10px/1 var(--f-mono); color: var(--signal); letter-spacing: .1em; }
+.is-touch .h-map { display: none; }
+@media (max-width: 900px) { .h-map { display: none; } }
+@media (max-height: 560px) { .h-map { display: none; } }
