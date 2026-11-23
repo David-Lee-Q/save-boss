@@ -890,12 +890,26 @@
 
   /* ============================================================== floors */
   function elevatorPoints(floor) {
+    if (floor === 24) {
+      const mk = (to, x) => {
+        const name = to === 41 ? '41F 安保机房' : to === 43 ? '43F 董事会层' : '42F 办公层';
+        return { to, x, z: 7.1, label: '乘电梯 · ' + name };
+      };
+      return [mk(41, -2.4), mk(42, 0), mk(43, 2.4)];
+    }
     const z = floor === 42 ? 20.3 : 8.7;
     const mk = (to) => {
       const name = to === 41 ? '41F 安保机房' : to === 43 ? '43F 董事会层' : '42F 办公层';
       return { to, x: to === 41 ? -3.2 : to === 43 ? 7.2 : 2.0, z, label: '乘电梯 · ' + name };
     };
-    return [mk(41), mk(42), mk(43)].filter((e) => e.to !== floor);
+    const list = [mk(41), mk(42), mk(43)].filter((e) => e.to !== floor);
+    list.push({
+      to: 24,
+      x: floor === 42 ? 9.6 : -6.5,
+      z,
+      label: '乘电梯 · RF 天台直升机坪'
+    });
+    return list;
   }
 
   function travelFloor(to) {

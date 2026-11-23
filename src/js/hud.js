@@ -126,7 +126,7 @@
     floor = floor || 42;
     H.mapFloor = floor;
     const title = document.getElementById('mapFloor');
-    if (title) title.textContent = floor + 'F · 平面图';
+    if (title) title.textContent = (floor === 24 ? 'RF 天台' : floor + 'F') + ' · 平面图';
     const cv = document.getElementById('mapcv');
     if (!cv) return;
     H.mapCv = cv;
@@ -441,6 +441,9 @@
     }
     if (G.floor === 41) {
       items.push({ x: 2.0, z: 8.7, label: '42F', cls: '', y: 1.5 });
+    }
+    if (G.floor === 24) {
+      items.push({ x: 0, z: 7.1, label: '42F', cls: '', y: 25.5 });
     }
 
     // reuse DOM nodes

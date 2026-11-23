@@ -173,7 +173,7 @@ r.font.color.rgb = ACCENT
 
 p = doc.add_paragraph()
 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-r = p.add_run('V1.2   |   WebGL2   |   单文件可离线运行')
+r = p.add_run('V1.3   |   WebGL2   |   单文件可离线运行')
 r.font.size = Pt(10)
 r.font.color.rgb = GREY
 
@@ -262,8 +262,8 @@ table(['区域', '内容'], [
 para('进入新房间时，画面左下会显示房间名与英文标识。', color=GREY, size=9.5)
 
 heading('5  楼层平面')
-para('本作是 42 层塔楼中的三层纵向切片：41F 安保机房、42F 办公层、43F 董事会层，由南侧电梯往返。42F 清空前 43F 门禁锁定；清空后在电梯前按 E 上楼，老板在 43F 董事长室。', size=10.5)
-para('41F 可随时前往，补充弹药与医疗包；42F 为下图的主战场；43F 为最终营救层。', color=GREY, size=9.5)
+para('本作是 42 层塔楼中的纵向切片：41F 安保机房、42F 办公层、43F 董事会层与 RF 天台直升机坪，由南侧电梯往返。42F 清空前 43F 门禁锁定；清空后在电梯前按 E 上楼，老板在 43F 董事长室。', size=10.5)
+para('41F 可随时前往，补充弹药与医疗包；42F 为下图的主战场；43F 为最终营救层；RF 天台有完整的直升机坪、边界灯与停放直升机。', color=GREY, size=9.5)
 
 mono(
 """                       北（落地窗 · 城市夜景）
