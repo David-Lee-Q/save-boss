@@ -5030,10 +5030,12 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     }
     const left = G.robbersLeft;
     const allDown = left === 0;
+    const onBossFloor = G.floor === 43;
     H.el.objSub.textContent = allDown
-      ? (G.bossFreed ? '目标完成 · 与老板一同撤离' : '劫匪已全部清除 · 立即寻找老板')
-      : `还剩 ${left} 名劫匪 · 老板下落不明`;
-    H.el.objTitle.textContent = allDown ? '营救老板' : '清剿劫匪';
+      ? (G.bossFreed ? '目标完成 · 老板安全' : onBossFloor ? '已到 43F · 找到老板并按住 E' : '42F 已清空 · 乘电梯前往 43F 董事会层')
+      : `还剩 ${left} 名劫匪 · 42F · 老板在 43F`;
+    H.el.objTitle.textContent = allDown ? (onBossFloor ? '找到老板' : '前往 43F') : '清剿劫匪';
+    H.el.rooms.style.display = G.floor === 42 ? '' : 'none';
     H.el.obj.classList.add('has');
     if (G.objFlash > 0) {
       G.objFlash -= 1;
