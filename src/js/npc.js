@@ -8,7 +8,9 @@
   // circle vs level AABBs; y is feet height, h body height
   Phys.blocked = function (x, z, r) {
     const y0 = 0.25, y1 = 1.7;
+    const fl = (global.GAME && global.GAME.floor) || 42;
     for (const c of LV.colliders) {
+      if ((c.floor || 42) !== fl) continue;
       if (c.y1 < y0 || c.y0 > y1) continue;
       if (x + r > c.x1 && x - r < c.x2 && z + r > c.z1 && z - r < c.z2) return c;
     }
@@ -56,7 +58,9 @@
   Phys.rayWalls = function (origin, dir, dist) {
     let best = null;
     const o = origin, d = dir;
+    const fl = (global.GAME && global.GAME.floor) || 42;
     for (const c of LV.colliders) {
+      if ((c.floor || 42) !== fl) continue;
       if (c.y0 > 2.6) continue;
       const h = rayBox(o.x, o.y, o.z, d.x, d.y, d.z, c, tmpHit);
       if (h && h.t > 0.02 && h.t <= dist && (!best || h.t < best.t)) {
@@ -78,7 +82,9 @@
     const len = Math.hypot(dx, dy, dz);
     if (len < 0.001) return true;
     const nx = dx / len, ny = dy / len, nz = dz / len;
+    const fl = (global.GAME && global.GAME.floor) || 42;
     for (const c of LV.colliders) {
+      if ((c.floor || 42) !== fl) continue;
       if (c.y1 < Math.min(ay, by) - 0.2) continue;
       if (c.y0 > Math.max(ay, by)) continue;
       if (c.y1 - c.y0 < 0.9 && c.y1 < 1.1) continue;      // low desks don't block sight fully

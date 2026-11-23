@@ -996,6 +996,7 @@
     function warm(x, y, z, intensity, dist, color) {
       const l = new THREE.PointLight(color || 0xffcf9a, intensity, dist, 2);
       l.position.set(x, y, z);
+      l.userData.floor = 42;
       scene.add(l);
       return l;
     }
@@ -1055,7 +1056,13 @@
     ];
 
     /* ============================================ nav grid */
+    for (const c of LV.colliders) c.floor = 42;
+    LV.floors = {
+      42: { baseY: 0, name: '42F 办公层', spawn: { x: 0.4, z: 19.0, yaw: 0 } }
+    };
+    LV.floorPlans = { 42: LV.rooms };
     LV.nav = buildNav();
+    LV.buildAltFloors(scene);
 
     return LV;
   };
@@ -1170,6 +1177,239 @@
     const r = LV.roomAt(x, z);
     if (r) return r.name;
     return '走廊';
+  };
+
+
+  /* ============================================================== vertical slice */
+  LV.buildAltFloors = function (scene) {
+    const R = LV.R;
+    const add = (group, key, w, h, d, x, y, z, ry, shadow) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), R[key].mat);
+      m.position.set(x, y, z);
+      if (ry) m.rotation.y = ry;
+      m.castShadow = false;
+      m.receiveShadow = false;
+      group.add(m);
+      return m;
+    };
+    const col = (floor, x1, z1, x2, z2, y0, y1) => {
+      LV.colliders.push({ x1: Math.min(x1, x2), x2: Math.max(x1, x2), z1: Math.min(z1, z2), z2: Math.max(z1, z2), y0: y0 || 0, y1: y1 == null ? 3.7 : y1, floor });
+    };
+    const chair = (g, x, z, ry, key) => {
+      add(g, key || 'fabric', 0.5, 0.1, 0.5, x, 0.48, z, ry);
+      add(g, key || 'fabric', 0.5, 0.5, 0.1, x - Math.sin(ry) * 0.2, 0.73, z - Math.cos(ry) * 0.2, ry);
+    };
+    const plant = (g, x, z, s) => {
+      add(g, 'dark', 0.42 * s, 0.55 * s, 0.42 * s, x, 0.275 * s, z);
+      add(g, 'fabric', 0.7 * s, 0.8 * s, 0.7 * s, x, 0.95 * s, z);
+    };
+
+    /* ---------------- 43F · 董事会层 ---------------- */
+    (function () {
+      const baseY = 12;
+      const g = new THREE.Group();
+      g.position.y = baseY;
+      g.visible = false;
+      scene.add(g);
+
+      add(g, 'marble', 28.4, 0.3, 20.4, 0, -0.15, 0);
+      add(g, 'ceil', 28.4, 0.2, 20.4, 0, 3.72, 0);
+
+      // glass curtain: north / east / west
+      add(g, 'glass', 28.2, 3.2, 0.06, 0, 1.75, -9.95);
+      add(g, 'glass', 0.06, 3.2, 20.2, 13.95, 1.75, 0);
+      add(g, 'glass', 0.06, 3.2, 20.2, -13.95, 1.75, 0);
+      for (let i = -4; i <= 4; i++) {
+        add(g, 'metalDark', 0.08, 3.3, 0.12, i * 3.1, 1.8, -9.95);
+        add(g, 'metalDark', 0.12, 3.3, 0.08, 13.95, 1.8, i * 2.2);
+        add(g, 'metalDark', 0.12, 3.3, 0.08, -13.95, 1.8, i * 2.2);
+      }
+      add(g, 'metalDark', 28.4, 0.12, 0.16, 0, 3.42, -9.95);
+      col(43, -14, -10.06, 14, -9.84);
+      col(43, 13.84, -10, 14.06, 10);
+      col(43, -14.06, -10, -13.84, 10);
+
+      // south core with the elevator bank
+      add(g, 'marbleDark', 28.4, 3.7, 0.3, 0, 1.85, 10);
+      add(g, 'metal', 2.1, 2.4, 0.12, -3.2, 1.2, 9.82);
+      add(g, 'metal', 2.1, 2.4, 0.12, 2.0, 1.2, 9.82);
+      add(g, 'metal', 2.1, 2.4, 0.12, 7.2, 1.2, 9.82);
+      for (const ex of [-3.2, 2.0, 7.2]) {
+        add(g, 'chrome', 2.3, 2.6, 0.05, ex, 1.3, 9.9);
+        add(g, 'alarm', 0.14, 0.14, 0.04, ex, 2.78, 9.88);
+      }
+      col(43, -14, 9.8, 14, 10.2);
+
+      // interior partitions
+      add(g, 'plaster', 0.24, 3.7, 4.0, 2, 1.85, -8);
+      add(g, 'plaster', 0.24, 3.7, 2.0, 2, 1.85, -3);
+      col(43, 1.88, -10, 2.12, -6);
+      col(43, 1.88, -4, 2.12, -2);
+      add(g, 'plaster', 4.0, 3.7, 0.24, 4, 1.85, -2);
+      add(g, 'plaster', 6.0, 3.7, 0.24, 11, 1.85, -2);
+      col(43, 2, -2.12, 6, -1.88);
+      col(43, 8, -2.12, 14, -1.88);
+      add(g, 'plaster', 8.0, 3.7, 0.24, -10, 1.85, 0);
+      add(g, 'plaster', 6.0, 3.7, 0.24, -1, 1.85, 0);
+      col(43, -14, -0.12, -6, 0.12);
+      col(43, -4, -0.12, 2, 0.12);
+
+      // boardroom
+      add(g, 'woodDark', 7.0, 0.08, 2.2, -6, 0.76, -5);
+      add(g, 'metalDark', 6.4, 0.7, 1.6, -6, 0.35, -5);
+      for (let i = 0; i < 4; i++) {
+        chair(g, -8.4 + i * 1.6, -6.4, 0);
+        chair(g, -8.4 + i * 1.6, -3.6, Math.PI);
+      }
+      add(g, 'dark', 0.08, 1.5, 2.6, -13.1, 2.0, -5);
+      add(g, 'screen', 2.4, 1.34, 0.02, -13.04, 2.0, -5);
+      add(g, 'woodDark', 2.6, 1.0, 0.5, -10, 0.5, -9.5);
+      col(43, -9.5, -6.1, -2.5, -3.9, 0, 0.85);
+      col(43, -13.4, -6.4, -12.9, -3.6, 0, 2.8);
+
+      // chairman suite
+      add(g, 'fabricWarm', 4.2, 0.02, 3.4, 9.5, 0.03, -5.4);
+      add(g, 'woodDark', 2.9, 0.08, 1.25, 9.5, 0.78, -5.4);
+      add(g, 'woodDark', 0.6, 0.72, 0.9, 8.35, 0.36, -5.4);
+      add(g, 'woodDark', 0.6, 0.72, 0.9, 10.65, 0.36, -5.4);
+      add(g, 'fabric', 0.55, 1.1, 0.55, 9.5, 0.55, -7.0);
+      add(g, 'fabric', 0.55, 0.5, 0.12, 9.5, 0.95, -7.25);
+      add(g, 'fabricWarm', 3.0, 0.4, 0.95, 5.5, 0.24, -8.5);
+      add(g, 'fabricWarm', 3.0, 0.5, 0.22, 5.5, 0.62, -8.85);
+      add(g, 'woodDark', 0.4, 2.3, 6.4, 13.7, 1.15, -6.4);
+      for (let i = 0; i < 5; i++) add(g, 'metalDark', 0.42, 0.04, 6.4, 13.7, 0.4 + i * 0.45, -6.4);
+      for (let i = 0; i < 26; i++) add(g, ['white', 'fabricWarm', 'metalDark', 'wood'][i % 4], 0.03, 0.24, 0.18, 13.55, 0.55 + Math.floor(i / 5) * 0.45, -8.9 + (i % 5) * 0.9);
+      col(43, 8.0, -6.2, 11.0, -4.6, 0, 0.9);
+      col(43, 4.0, -9.0, 7.0, -8.1, 0, 0.6);
+      col(43, 13.4, -9.7, 14, -3.1, 0, 2.4);
+
+      // lounge + reception
+      add(g, 'fabricWarm', 3.0, 0.4, 0.95, -9.5, 0.24, 4.6);
+      add(g, 'fabricWarm', 3.0, 0.5, 0.22, -9.5, 0.62, 4.25);
+      add(g, 'woodDark', 1.8, 0.42, 0.8, -9.5, 0.23, 6.4);
+      add(g, 'marbleDark', 1.6, 0.9, 0.72, -1.5, 0.5, 7.4);
+      add(g, 'marble', 1.8, 0.08, 0.86, -1.5, 0.98, 7.4);
+      plant(g, -12.6, 8.4, 1.2);
+      plant(g, 12.4, 8.4, 1.2);
+      plant(g, -12.4, -1.6, 1.0);
+      col(43, -11.2, 4.0, -7.8, 5.2, 0, 0.55);
+      col(43, -10.6, 5.9, -8.4, 6.9, 0, 0.5);
+      col(43, -2.5, 6.8, -0.5, 8.0, 0, 1.05);
+
+      // ceiling light runs + practicals
+      for (const z of [-7.5, -4.2, 0.6, 4.4, 7.6]) add(g, 'light', 24.0, 0.06, 0.14, 0, 3.62, z);
+      const warm = (x, z, i) => {
+        const l = new THREE.PointLight(0xffe3bf, i, 14, 2);
+        l.position.set(x, 2.9, z);
+        g.add(l);
+      };
+      warm(-7, -5.6, 18); warm(8.5, -6.0, 16); warm(-8, 5.5, 15); warm(1.5, 7.0, 12); warm(9, 5.5, 12);
+
+      LV.floors[43] = {
+        baseY: baseY, name: '43F 董事会层', group: g,
+        spawn: { x: 0, z: 6.8, yaw: 0 },
+        rooms: [
+          { id: 'b43-lobby', name: '电梯厅', rect: { x1: -14, x2: 14, z1: 6, z2: 10 } },
+          { id: 'b43-lounge', name: '休息区', rect: { x1: -14, x2: 2, z1: 0, z2: 6 } },
+          { id: 'b43-board', name: '董事会', rect: { x1: -14, x2: 2, z1: -10, z2: 0 } },
+          { id: 'b43-chair', name: '董事长室', rect: { x1: 2, x2: 14, z1: -10, z2: -2 } },
+          { id: 'b43-hall', name: '走廊', rect: { x1: 2, x2: 14, z1: -2, z2: 6 } }
+        ]
+      };
+      LV.floorPlans[43] = LV.floors[43].rooms;
+      LV.floors[43].group.visible = false;
+    })();
+
+    /* ---------------- 41F · 安保与机房 ---------------- */
+    (function () {
+      const baseY = -12;
+      const g = new THREE.Group();
+      g.position.y = baseY;
+      g.visible = false;
+      scene.add(g);
+
+      add(g, 'concrete', 28.4, 0.3, 20.4, 0, -0.15, 0);
+      add(g, 'ceil', 28.4, 0.2, 20.4, 0, 3.22, 0);
+      add(g, 'plasterDark', 28.4, 3.3, 0.3, 0, 1.65, -10);
+      add(g, 'plasterDark', 28.4, 3.3, 0.3, 0, 1.65, 10);
+      add(g, 'plasterDark', 0.3, 3.3, 20.4, -14, 1.65, 0);
+      add(g, 'plasterDark', 0.3, 3.3, 20.4, 14, 1.65, 0);
+      add(g, 'glass', 0.06, 1.4, 6.0, -13.95, 1.9, 4.0);
+      col(41, -14, -10.2, 14, -9.8);
+      col(41, -14, 9.8, 14, 10.2);
+      col(41, -14.2, -10, -13.8, 10);
+      col(41, 13.8, -10, 14.2, 10);
+
+      // elevator bank
+      add(g, 'marbleDark', 10.0, 3.3, 0.26, -2.0, 1.65, 9.92);
+      add(g, 'metal', 2.1, 2.4, 0.12, -3.2, 1.2, 9.78);
+      add(g, 'metal', 2.1, 2.4, 0.12, 2.0, 1.2, 9.78);
+      add(g, 'metal', 2.1, 2.4, 0.12, 7.2, 1.2, 9.78);
+      for (const ex of [-3.2, 2.0, 7.2]) {
+        add(g, 'chrome', 2.3, 2.6, 0.05, ex, 1.3, 9.86);
+        add(g, 'alarm', 0.14, 0.14, 0.04, ex, 2.78, 9.84);
+      }
+      col(41, -8, 9.8, 3, 10.2);
+
+      // server racks
+      for (let r = 0; r < 2; r++) {
+        for (let c = 0; c < 4; c++) {
+          const x = -9 + c * 1.35, z = -6.5 + r * 3.0;
+          add(g, 'dark', 0.9, 2.0, 0.7, x, 1.0, z);
+          add(g, 'lightCool', 0.7, 0.05, 0.02, x, 1.55, z + 0.36);
+          add(g, 'alarm', 0.03, 0.03, 0.02, x + 0.3, 1.2, z + 0.36);
+          col(41, x - 0.5, z - 0.4, x + 0.5, z + 0.4, 0, 2.0);
+        }
+      }
+      // ops desk + monitors
+      add(g, 'woodDark', 5.0, 0.08, 0.9, 5.0, 0.76, -7.5);
+      add(g, 'metalDark', 4.6, 0.7, 0.7, 5.0, 0.35, -7.5);
+      for (let i = 0; i < 3; i++) {
+        add(g, 'dark', 0.7, 0.4, 0.05, 3.6 + i * 1.3, 1.15, -7.9);
+        add(g, 'screen', 0.64, 0.34, 0.02, 3.6 + i * 1.3, 1.15, -7.93);
+      }
+      col(41, 2.4, -8.0, 7.6, -7.0, 0, 0.85);
+      // lockers
+      for (let i = 0; i < 3; i++) {
+        add(g, 'metal', 0.9, 1.9, 0.5, 11.4, 0.95, -8.2 + i * 1.0);
+        add(g, 'chrome', 0.04, 0.4, 0.04, 11.0, 0.95, -8.2 + i * 1.0);
+      }
+      col(41, 10.9, -8.7, 11.9, -5.2, 0, 1.9);
+      // crates and console
+      add(g, 'dark', 1.2, 1.0, 1.2, -11.5, 0.5, 4.0);
+      add(g, 'alarm', 0.5, 0.06, 0.2, -11.5, 1.03, 4.0);
+      col(41, -12.2, 3.3, -10.8, 4.7, 0, 1.1);
+      add(g, 'marbleDark', 3.0, 0.9, 0.7, 7.0, 0.5, 6.5);
+      col(41, 5.5, 6.1, 8.5, 6.9, 0, 1.0);
+
+      for (const z of [-7, -2.5, 2.0, 6.5]) add(g, 'lightCool', 22.0, 0.06, 0.12, 0, 3.12, z);
+      const cool = (x, z, i) => {
+        const l = new THREE.PointLight(0xbfe4ff, i, 13, 2);
+        l.position.set(x, 2.8, z);
+        g.add(l);
+      };
+      cool(-6, -5, 14); cool(6, -5, 12); cool(0, 6, 12);
+
+      LV.floors[41] = {
+        baseY: baseY, name: '41F 安保机房', group: g,
+        spawn: { x: 0, z: 6.6, yaw: 0 },
+        rooms: [
+          { id: 'b41-ops', name: '安保机房', rect: { x1: -14, x2: 14, z1: -10, z2: 10 } }
+        ]
+      };
+      LV.floorPlans[41] = LV.floors[41].rooms;
+      LV.floors[41].group.visible = false;
+    })();
+
+    // floor-tagged pickups
+    LV.pickups.push({ kind: 'ammo', x: -5, z: 5.5, floor: 41 });
+    LV.pickups.push({ kind: 'health', x: 4.5, z: 5.5, floor: 41 });
+    LV.pickups.push({ kind: 'health', x: 5.5, z: 4.0, floor: 43 });
+    // boss now lives on 43F
+    LV.actors.boss.floor = 43;
+    LV.actors.boss.x = 9.5;
+    LV.actors.boss.z = -7.4;
+    LV.actors.boss.ry = 0;
   };
 
   global.LV = LV;

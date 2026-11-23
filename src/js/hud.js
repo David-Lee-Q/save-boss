@@ -122,7 +122,11 @@
   };
 
   /* ---------------------------------------------------------------- minimap */
-  H.buildMap = function () {
+  H.buildMap = function (floor) {
+    floor = floor || 42;
+    H.mapFloor = floor;
+    const title = document.getElementById('mapFloor');
+    if (title) title.textContent = floor + 'F · 平面图';
     const cv = document.getElementById('mapcv');
     if (!cv) return;
     H.mapCv = cv;
@@ -144,6 +148,7 @@
     // walls (colliders tall enough to be architecture)
     g.fillStyle = 'rgba(214,209,199,.6)';
     for (const c of LV.colliders) {
+      if ((c.floor || 42) !== floor) continue;
       if (c.y1 < 2.8) continue;
       const x = H.mapX(c.x1), y = H.mapY(c.z1);
       const w = Math.max(1, (c.x2 - c.x1) * s), h = Math.max(1, (c.z2 - c.z1) * s);
@@ -157,23 +162,29 @@
     H.mapAcc = 0;
   };
 
+  H.onFloorChange = function (floor) {
+    H.buildMap(floor);
+  };
+
   H.updateMap = function (dt, G) {
     const cv = H.mapCv, c = H.mapCtx;
     if (!cv || !c) return;
+    if (G.floor !== H.mapFloor) H.buildMap(G.floor);
     H.mapAcc += dt;
     if (H.mapAcc < 0.08) return;
     H.mapAcc = 0;
     const S = H.mapS;
     c.clearRect(0, 0, H.mapW, H.mapH);
+    const plan = (LV.floorPlans && LV.floorPlans[G.floor]) || [];
 
     // room fills
-    for (const r of LV.rooms) {
+    for (const r of plan) {
       const st = G.roomState[r.id];
-      if (!st) continue;
-      const known = st.discovered;
+      const known = G.floor !== 42 || (st && st.discovered);
+      const cleared = G.floor !== 42 || (st && st.cleared);
       const x = H.mapX(r.rect.x1), y = H.mapY(r.rect.z1);
       const w = (r.rect.x2 - r.rect.x1) * S, h = (r.rect.z2 - r.rect.z1) * S;
-      c.fillStyle = st.cleared ? 'rgba(255,179,71,.13)' : known ? 'rgba(255,179,71,.055)' : 'rgba(232,228,218,.015)';
+      c.fillStyle = cleared ? 'rgba(255,179,71,.13)' : known ? 'rgba(255,179,71,.055)' : 'rgba(232,228,218,.015)';
       c.fillRect(x, y, w, h);
     }
 
@@ -183,16 +194,18 @@
     const label = { lobby: '大堂', open: '大厅', meet: '会议', ceo: 'CEO', cfo: 'CFO', pantry: '茶水' };
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    for (const r of LV.rooms) {
+    for (const r of plan) {
       const st = G.roomState[r.id];
-      if (!st) continue;
+      const known = G.floor !== 42 || (st && st.discovered);
+      const cleared = G.floor !== 42 || (st && st.cleared);
+      const cx = (r.rect.x1 + r.rect.x2) / 2, cz = (r.rect.z1 + r.rect.z2) / 2;
       c.font = '600 15px "PingFang SC","Microsoft YaHei",sans-serif';
-      c.fillStyle = st.discovered ? (st.cleared ? 'rgba(255,179,71,.95)' : 'rgba(232,228,218,.78)') : 'rgba(232,228,218,.22)';
-      c.fillText(st.discovered ? (label[r.id] || r.name) : '未搜索', H.mapX(r.cx), H.mapY(r.cz));
+      c.fillStyle = known ? (cleared ? 'rgba(255,179,71,.95)' : 'rgba(232,228,218,.78)') : 'rgba(232,228,218,.22)';
+      c.fillText(known ? (label[r.id] || r.name) : '未搜索', H.mapX(cx), H.mapY(cz));
     }
 
     // hostages (known rooms only)
-    for (const h of (G.hostages || [])) {
+    if (G.floor === 42) for (const h of (G.hostages || [])) {
       if (h.freed) continue;
       const st = G.roomState[h.room];
       if (!st || !st.discovered) continue;
@@ -202,7 +215,7 @@
     }
 
     // robbers: only those already alerted / in combat
-    for (const rb of (G.robbers || [])) {
+    if (G.floor === 42) for (const rb of (G.robbers || [])) {
       if (rb.state === 3 || rb.state === 0) continue;
       const x = H.mapX(rb.pos.x), y = H.mapY(rb.pos.z);
       c.save(); c.translate(x, y); c.rotate(Math.PI / 4);
@@ -212,7 +225,7 @@
     }
 
     // dropped weapons
-    for (const d of (G.drops || [])) {
+    if (G.floor === 42) for (const d of (G.drops || [])) {
       if (d.taken) continue;
       const st = G.roomState[LV.roomAt(d.x, d.z) ? LV.roomAt(d.x, d.z).id : ''];
       if (!st || !st.discovered) continue;
@@ -221,7 +234,7 @@
     }
 
     // boss marker after the floor is clear
-    if (!G.bossFreed && G.robbersLeft === 0 && G.boss) {
+    if (G.floor === 43 && !G.bossFreed && G.robbersLeft === 0 && G.boss) {
       const x = H.mapX(G.boss.pos.x), y = H.mapY(G.boss.pos.z);
       c.save(); c.translate(x, y); c.rotate(Math.PI / 4);
       c.strokeStyle = '#ffd27a'; c.lineWidth = 2;
@@ -410,19 +423,22 @@
     const cam = G.camera;
     const v = new THREE.Vector3();
     const items = [];
-    if (!G.bossFreed) {
-      items.push({ x: LV.actors.boss.x, z: LV.actors.boss.z, label: '老板', cls: 'extract', y: 1.4 });
-    } else {
-      // extraction: the elevator
-      items.push({ x: 1.75, z: 20.6, label: '撤离', cls: 'extract', y: 1.4 });
+    if (G.floor === 43 && !G.bossFreed) {
+      items.push({ x: LV.actors.boss.x, z: LV.actors.boss.z, label: '老板', cls: 'extract', y: 13.4 });
     }
-    if (G.robbersLeft > 0) {
+    if (G.floor === 42 && G.robbersLeft > 0) {
       for (const id of H.roomOrder) {
         const st = G.roomState[id];
         if (st.total - st.killed <= 0) continue;
         const room = LV.rooms.find((r) => r.id === id);
         items.push({ x: room.cx, z: room.cz, label: room.name.slice(0, 4), cls: '', y: 1.6, count: st.total - st.killed });
       }
+    }
+    if (!G.bossFreed && G.robbersLeft === 0 && G.floor !== 43) {
+      items.push({ x: 7.2, z: G.floor === 42 ? 20.3 : 8.7, label: '43F', cls: 'extract', y: G.floor === 42 ? 1.5 : 1.5 - 12 });
+    }
+    if (G.floor === 41) {
+      items.push({ x: 2.0, z: 8.7, label: '42F', cls: '', y: 1.5 });
     }
 
     // reuse DOM nodes

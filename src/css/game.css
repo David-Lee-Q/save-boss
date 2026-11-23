@@ -129,3 +129,8 @@
 .is-touch .h-map { display: none; }
 @media (max-width: 900px) { .h-map { display: none; } }
 @media (max-height: 560px) { .h-map { display: none; } }
+
+
+/* ---- floor travel fade ---- */
+#fade { position: absolute; inset: 0; z-index: 40; pointer-events: none; background: #05070a; opacity: 0; transition: opacity .35s ease; }
+#fade.on { opacity: 1; transition-duration: .22s; }

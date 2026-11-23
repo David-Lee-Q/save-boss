@@ -27,7 +27,7 @@
 
       <div class="h-map" id="map">
         <canvas id="mapcv" width="360" height="304"></canvas>
-        <div class="h-map-t"><span>42F · 平面图</span><b>N</b></div>
+        <div class="h-map-t"><span id="mapFloor">42F · 平面图</span><b>N</b></div>
       </div>
 
       <div class="h-obj" id="obj">
@@ -93,6 +93,8 @@
       <button class="t-btn t-pause" data-touch="pause"><span>Ⅱ</span></button>
     </div>
   </div>
+
+  <div id="fade"></div>
 
   <div class="loc-card" id="loc"><i></i><b id="locT"></b><span id="locS"></span></div>
 

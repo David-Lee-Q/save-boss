@@ -25,7 +25,10 @@
     nades: 3,
     drops: [],
     checkpoint: null,
-    shake: 0
+    shake: 0,
+    floor: 42,
+    floorBaseY: 0,
+    traveling: false
   };
   global.GAME = G;
 
@@ -212,11 +215,14 @@
     boss = new Character(scene, 'boss', b.x, b.z, b.ry);
     boss.name = b.name; boss.role = b.role;
     boss.freed = false;
+    boss.floor = b.floor || 43;
+    boss.pos.y = LV.floors[boss.floor] ? LV.floors[boss.floor].baseY : 0;
+    boss.sync(0);
     scene.add(boss.rig.root);
 
     // pickups
     pickups = [];
-    const mkPickup = (kind, x, z) => {
+    const mkPickup = (kind, x, z, floor) => {
       const g = new THREE.Group();
       if (kind === 'ammo') {
         const m = new THREE.MeshStandardMaterial({ color: 0x3d4750, roughness: 0.55, metalness: 0.35 });
@@ -245,11 +251,12 @@
       }));
       ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02;
       g.add(ring);
-      g.position.set(x, 0, z);
+      const fl = floor || 42;
+      g.position.set(x, LV.floors[fl] ? LV.floors[fl].baseY : 0, z);
       scene.add(g);
-      pickups.push({ kind, x, z, mesh: g, ring, taken: false, t: Math.random() * 6.28 });
+      pickups.push({ kind, x, z, floor: fl, mesh: g, ring, taken: false, t: Math.random() * 6.28 });
     };
-    for (const p of LV.pickups) mkPickup(p.kind, p.x, p.z);
+    for (const p of LV.pickups) mkPickup(p.kind, p.x, p.z, p.floor || 42);
     G.pickups = pickups;
 
     G.robbers = robbers;
@@ -559,7 +566,7 @@
     player.bobY = Math.sin(player.bobT * 2) * bobAmt;
 
     // camera
-    camera.position.set(player.pos.x, player.pos.y + player.eyeH + player.bobY, player.pos.z);
+    camera.position.set(player.pos.x, G.floorBaseY + player.pos.y + player.eyeH + player.bobY, player.pos.z);
     camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
     // slight roll while strafing
     const rollTarget = -(input.move.x) * 0.018 - (keys.KeyD ? 0.02 : 0) + (keys.KeyA ? 0.02 : 0);
@@ -582,12 +589,12 @@
     weapon.moveAmount = U.clamp(speedNow / 6, 0, 1);
 
     // player room
-    const room = LV.roomAt(player.pos.x, player.pos.z);
+    const room = G.floor === 42 ? LV.roomAt(player.pos.x, player.pos.z) : null;
     G.playerRoom = room;
     if (room && HUD.lastLocRoom !== room.id) {
       HUD.lastLocRoom = room.id;
       onEnterRoom(room);
-    } else if (!room && HUD.lastLocRoom !== 'corridor') {
+    } else if (G.floor === 42 && !room && HUD.lastLocRoom !== 'corridor') {
       HUD.lastLocRoom = 'corridor';
       HUD.location('走廊', '42F · 海程中心');
     }
@@ -780,8 +787,9 @@
         else { g.vel.x *= -0.42; g.vel.z *= -0.42; }
       } else { g.pos.x = nx; g.pos.z = nz; }
       g.pos.y += g.vel.y * dt;
-      if (g.pos.y < 0.09) {
-        g.pos.y = 0.09;
+      const groundY = G.floorBaseY + 0.09;
+      if (g.pos.y < groundY) {
+        g.pos.y = groundY;
         g.vel.y = Math.abs(g.vel.y) * 0.22;
         g.vel.x *= 0.62; g.vel.z *= 0.62;   // carpet/stone friction
         if (Math.abs(g.vel.y) < 0.6) g.vel.y = 0;
@@ -868,7 +876,7 @@
     g.position.set(x, 0, z);
     g.rotation.y = U.rnd(0, 6.28);
     scene.add(g);
-    G.drops.push({ x, z, mesh: g, ring, kind: kind || 'rifle', taken: false, t: U.rnd(0, 6) });
+    G.drops.push({ x, z, floor: 42, mesh: g, ring, kind: kind || 'rifle', taken: false, t: U.rnd(0, 6) });
   }
 
   function updateDrops(dt) {
@@ -878,6 +886,46 @@
       d.ring.material.opacity = 0.26 + Math.sin(d.t * 1.5) * 0.12;
       d.ring.scale.setScalar(1 + Math.sin(d.t * 1.1) * 0.05);
     }
+  }
+
+  /* ============================================================== floors */
+  function elevatorPoints(floor) {
+    const z = floor === 42 ? 20.3 : 8.7;
+    const mk = (to) => {
+      const name = to === 41 ? '41F 安保机房' : to === 43 ? '43F 董事会层' : '42F 办公层';
+      return { to, x: to === 41 ? -3.2 : to === 43 ? 7.2 : 2.0, z, label: '乘电梯 · ' + name };
+    };
+    return [mk(41), mk(42), mk(43)].filter((e) => e.to !== floor);
+  }
+
+  function travelFloor(to) {
+    const f = LV.floors[to];
+    if (!f || G.traveling || to === G.floor) return;
+    G.traveling = true;
+    input.fireMouse = false; input.touchFire = false; input.padFire = false;
+    const fade = document.getElementById('fade');
+    if (fade) fade.classList.add('on');
+    if (SFX.radio) SFX.radio();
+    setTimeout(() => {
+      G.floor = to;
+      G.floorBaseY = f.baseY;
+      player.pos.set(f.spawn.x, 0, f.spawn.z);
+      player.yaw = f.spawn.yaw; player.pitch = 0;
+      player.vel.set(0, 0, 0);
+      // floor visibility + lights
+      for (const k in LV.floors) {
+        const fl = LV.floors[k];
+        if (fl.group) fl.group.visible = (+k === to);
+      }
+      scene.traverse((o) => {
+        if (o.isLight && o.userData && o.userData.floor) o.visible = (o.userData.floor === to);
+      });
+      HUD.lastLocRoom = null;
+      if (HUD.onFloorChange) HUD.onFloorChange(to);
+      HUD.location(f.name, `${to}F · 海程中心`);
+      if (fade) fade.classList.remove('on');
+      G.traveling = false;
+    }, 480);
   }
 
   /* ============================================================== damage */
@@ -974,8 +1022,18 @@
       if (d < radius && d < bestD) { bestD = d; best = item; }
     };
 
-    // boss
-    if (!G.bossFreed) {
+    // elevators
+    const ep = elevatorPoints(G.floor);
+    for (const e of ep) {
+      consider(e.x, e.z, 1.7, {
+        kind: 'elevator', to: e.to,
+        label: e.to === 43 && G.robbersLeft > 0 ? '43F · 授权锁定' : e.label,
+        locked: e.to === 43 && G.robbersLeft > 0,
+        key: 'E', hold: false
+      });
+    }
+    // boss (43F only)
+    if (!G.bossFreed && G.floor === 43) {
       const ready = G.robbersLeft === 0;
       consider(boss.pos.x, boss.pos.z, 2.4, {
         kind: ready ? 'boss' : 'boss-blocked',
@@ -984,18 +1042,20 @@
       });
     }
     // hostages
-    for (const h of hostages) {
+    if (G.floor === 42) for (const h of hostages) {
       if (h.freed) continue;
       consider(h.pos.x, h.pos.z, 1.8, { kind: 'hostage', hostage: h, label: '解开束缚', key: 'E', hold: true, holdTime: 1.5 });
     }
     // dropped weapons
     for (const dr of (G.drops || [])) {
       if (dr.taken) continue;
+      if ((dr.floor || 42) !== G.floor) continue;
       consider(dr.x, dr.z, 1.6, { kind: 'drop', drop: dr, label: '拾取 AK-74', key: 'E', hold: false });
     }
     // pickups
     for (const pk of pickups) {
       if (pk.taken) continue;
+      if ((pk.floor || 42) !== G.floor) continue;
       if (pk.kind === 'ammo' && weapon.reserve >= weapon.def.reserve) continue;
       if (pk.kind === 'health' && player.hp >= player.maxHp) continue;
       const d = Math.hypot(pk.x - p.x, pk.z - p.z);
@@ -1053,6 +1113,12 @@
       h.fleeTo = { x: 2.0, z: 19.6 };
       h.fleePath = LV.nav.path(h.pos.x, h.pos.z, h.fleeTo.x, h.fleeTo.z);
       h.fleeI = 0;
+    } else if (it.kind === 'elevator') {
+      if (it.locked) {
+        HUD.msg('43F 已锁定 · 先清剿 42F 的劫匪', 2.6);
+        return;
+      }
+      travelFloor(it.to);
     } else if (it.kind === 'drop') {
       const dr = it.drop;
       if (!dr || dr.taken) return;
@@ -1199,7 +1265,8 @@
     for (const p of pickups) {
       if (p.taken) continue;
       p.t += dt * 2.2;
-      p.mesh.position.y = Math.sin(p.t) * 0.02;
+      const baseY = (LV.floors[p.floor || 42] || {}).baseY || 0;
+      p.mesh.position.y = baseY + Math.sin(p.t) * 0.02;
       p.ring.material.opacity = 0.24 + Math.sin(p.t * 1.6) * 0.12;
       p.ring.scale.setScalar(1 + Math.sin(p.t * 1.2) * 0.04);
     }
@@ -1694,6 +1761,9 @@
       weapon.reset();
       G.checkpoint = null;
       G.droppedOnce = false;
+      G.floor = 42;
+      G.floorBaseY = 0;
+      player.pos.set(LV.spawn.x, 0, LV.spawn.z);
     } else {
       G.time = cp.time;
       G.robberKills = cp.kills;
@@ -1707,6 +1777,8 @@
       weapon.setCurrent(cp.cur, true);
       G.droppedOnce = true;
       G.bossFreed = !!cp.bossFreed;
+      G.floor = cp.floor || 42;
+      G.floorBaseY = (LV.floors[G.floor] || {}).baseY || 0;
     }
     G.visited = {};
     G.ended = false;
@@ -1714,6 +1786,13 @@
     weapon.gun.visible = true;
     HUD.setWeapon(weapon);
     HUD.setNades(G.nades);
+    for (const k in LV.floors) {
+      const fl = LV.floors[k];
+      if (fl.group) fl.group.visible = (+k === G.floor);
+    }
+    scene.traverse((o) => {
+      if (o.isLight && o.userData && o.userData.floor) o.visible = (o.userData.floor === G.floor);
+    });
     HUD.lastLocRoom = null;
     HUD.el.hud.classList.add('on');
     HUD.location('前台大堂', 'RECEPTION · 42F 海程中心');
@@ -1767,6 +1846,8 @@
     for (const r of LV.rooms) r.total = 0;
     spawnActors(cp);
 
+    G.floor = cp ? (cp.floor || 42) : 42;
+    G.floorBaseY = (LV.floors[G.floor] || {}).baseY || 0;
     player.pos.set(cp ? cp.x : LV.spawn.x, 0, cp ? cp.z : LV.spawn.z);
     player.vel.set(0, 0, 0);
     player.yaw = cp ? cp.yaw : 0; player.pitch = cp ? cp.pitch : 0;
@@ -1790,7 +1871,7 @@
     for (const id in G.roomState) seen[id] = G.roomState[id].discovered;
     G.checkpoint = {
       x: player.pos.x, z: player.pos.z, yaw: player.yaw, pitch: player.pitch,
-      hp: player.hp, nades: G.nades, time: G.time,
+      hp: player.hp, nades: G.nades, time: G.time, floor: G.floor,
       kills: G.robberKills, shots: G.shotsFired, hits: G.shotsHit,
       dead: LV.actors.robbers.map((d, i) => {
         const r = robbers.find((x) => x.defIndex === i);

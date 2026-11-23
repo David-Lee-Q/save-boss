@@ -474,6 +474,11 @@ kbd { display: inline-block; font: 500 10px/1 var(--f-mono); color: var(--bone);
 @media (max-width: 900px) { .h-map { display: none; } }
 @media (max-height: 560px) { .h-map { display: none; } }
 
+
+/* ---- floor travel fade ---- */
+#fade { position: absolute; inset: 0; z-index: 40; pointer-events: none; background: #05070a; opacity: 0; transition: opacity .35s ease; }
+#fade.on { opacity: 1; transition-duration: .22s; }
+
 </style>
 </head>
 <body>
@@ -496,7 +501,7 @@ kbd { display: inline-block; font: 500 10px/1 var(--f-mono); color: var(--bone);
 
       <div class="h-map" id="map">
         <canvas id="mapcv" width="360" height="304"></canvas>
-        <div class="h-map-t"><span>42F · 平面图</span><b>N</b></div>
+        <div class="h-map-t"><span id="mapFloor">42F · 平面图</span><b>N</b></div>
       </div>
 
       <div class="h-obj" id="obj">
@@ -562,6 +567,8 @@ kbd { display: inline-block; font: 500 10px/1 var(--f-mono); color: var(--bone);
       <button class="t-btn t-pause" data-touch="pause"><span>Ⅱ</span></button>
     </div>
   </div>
+
+  <div id="fade"></div>
 
   <div class="loc-card" id="loc"><i></i><b id="locT"></b><span id="locS"></span></div>
 
@@ -2885,6 +2892,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     function warm(x, y, z, intensity, dist, color) {
       const l = new THREE.PointLight(color || 0xffcf9a, intensity, dist, 2);
       l.position.set(x, y, z);
+      l.userData.floor = 42;
       scene.add(l);
       return l;
     }
@@ -2944,7 +2952,13 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     ];
 
     /* ============================================ nav grid */
+    for (const c of LV.colliders) c.floor = 42;
+    LV.floors = {
+      42: { baseY: 0, name: '42F 办公层', spawn: { x: 0.4, z: 19.0, yaw: 0 } }
+    };
+    LV.floorPlans = { 42: LV.rooms };
     LV.nav = buildNav();
+    LV.buildAltFloors(scene);
 
     return LV;
   };
@@ -3059,6 +3073,239 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     const r = LV.roomAt(x, z);
     if (r) return r.name;
     return '走廊';
+  };
+
+
+  /* ============================================================== vertical slice */
+  LV.buildAltFloors = function (scene) {
+    const R = LV.R;
+    const add = (group, key, w, h, d, x, y, z, ry, shadow) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), R[key].mat);
+      m.position.set(x, y, z);
+      if (ry) m.rotation.y = ry;
+      m.castShadow = false;
+      m.receiveShadow = false;
+      group.add(m);
+      return m;
+    };
+    const col = (floor, x1, z1, x2, z2, y0, y1) => {
+      LV.colliders.push({ x1: Math.min(x1, x2), x2: Math.max(x1, x2), z1: Math.min(z1, z2), z2: Math.max(z1, z2), y0: y0 || 0, y1: y1 == null ? 3.7 : y1, floor });
+    };
+    const chair = (g, x, z, ry, key) => {
+      add(g, key || 'fabric', 0.5, 0.1, 0.5, x, 0.48, z, ry);
+      add(g, key || 'fabric', 0.5, 0.5, 0.1, x - Math.sin(ry) * 0.2, 0.73, z - Math.cos(ry) * 0.2, ry);
+    };
+    const plant = (g, x, z, s) => {
+      add(g, 'dark', 0.42 * s, 0.55 * s, 0.42 * s, x, 0.275 * s, z);
+      add(g, 'fabric', 0.7 * s, 0.8 * s, 0.7 * s, x, 0.95 * s, z);
+    };
+
+    /* ---------------- 43F · 董事会层 ---------------- */
+    (function () {
+      const baseY = 12;
+      const g = new THREE.Group();
+      g.position.y = baseY;
+      g.visible = false;
+      scene.add(g);
+
+      add(g, 'marble', 28.4, 0.3, 20.4, 0, -0.15, 0);
+      add(g, 'ceil', 28.4, 0.2, 20.4, 0, 3.72, 0);
+
+      // glass curtain: north / east / west
+      add(g, 'glass', 28.2, 3.2, 0.06, 0, 1.75, -9.95);
+      add(g, 'glass', 0.06, 3.2, 20.2, 13.95, 1.75, 0);
+      add(g, 'glass', 0.06, 3.2, 20.2, -13.95, 1.75, 0);
+      for (let i = -4; i <= 4; i++) {
+        add(g, 'metalDark', 0.08, 3.3, 0.12, i * 3.1, 1.8, -9.95);
+        add(g, 'metalDark', 0.12, 3.3, 0.08, 13.95, 1.8, i * 2.2);
+        add(g, 'metalDark', 0.12, 3.3, 0.08, -13.95, 1.8, i * 2.2);
+      }
+      add(g, 'metalDark', 28.4, 0.12, 0.16, 0, 3.42, -9.95);
+      col(43, -14, -10.06, 14, -9.84);
+      col(43, 13.84, -10, 14.06, 10);
+      col(43, -14.06, -10, -13.84, 10);
+
+      // south core with the elevator bank
+      add(g, 'marbleDark', 28.4, 3.7, 0.3, 0, 1.85, 10);
+      add(g, 'metal', 2.1, 2.4, 0.12, -3.2, 1.2, 9.82);
+      add(g, 'metal', 2.1, 2.4, 0.12, 2.0, 1.2, 9.82);
+      add(g, 'metal', 2.1, 2.4, 0.12, 7.2, 1.2, 9.82);
+      for (const ex of [-3.2, 2.0, 7.2]) {
+        add(g, 'chrome', 2.3, 2.6, 0.05, ex, 1.3, 9.9);
+        add(g, 'alarm', 0.14, 0.14, 0.04, ex, 2.78, 9.88);
+      }
+      col(43, -14, 9.8, 14, 10.2);
+
+      // interior partitions
+      add(g, 'plaster', 0.24, 3.7, 4.0, 2, 1.85, -8);
+      add(g, 'plaster', 0.24, 3.7, 2.0, 2, 1.85, -3);
+      col(43, 1.88, -10, 2.12, -6);
+      col(43, 1.88, -4, 2.12, -2);
+      add(g, 'plaster', 4.0, 3.7, 0.24, 4, 1.85, -2);
+      add(g, 'plaster', 6.0, 3.7, 0.24, 11, 1.85, -2);
+      col(43, 2, -2.12, 6, -1.88);
+      col(43, 8, -2.12, 14, -1.88);
+      add(g, 'plaster', 8.0, 3.7, 0.24, -10, 1.85, 0);
+      add(g, 'plaster', 6.0, 3.7, 0.24, -1, 1.85, 0);
+      col(43, -14, -0.12, -6, 0.12);
+      col(43, -4, -0.12, 2, 0.12);
+
+      // boardroom
+      add(g, 'woodDark', 7.0, 0.08, 2.2, -6, 0.76, -5);
+      add(g, 'metalDark', 6.4, 0.7, 1.6, -6, 0.35, -5);
+      for (let i = 0; i < 4; i++) {
+        chair(g, -8.4 + i * 1.6, -6.4, 0);
+        chair(g, -8.4 + i * 1.6, -3.6, Math.PI);
+      }
+      add(g, 'dark', 0.08, 1.5, 2.6, -13.1, 2.0, -5);
+      add(g, 'screen', 2.4, 1.34, 0.02, -13.04, 2.0, -5);
+      add(g, 'woodDark', 2.6, 1.0, 0.5, -10, 0.5, -9.5);
+      col(43, -9.5, -6.1, -2.5, -3.9, 0, 0.85);
+      col(43, -13.4, -6.4, -12.9, -3.6, 0, 2.8);
+
+      // chairman suite
+      add(g, 'fabricWarm', 4.2, 0.02, 3.4, 9.5, 0.03, -5.4);
+      add(g, 'woodDark', 2.9, 0.08, 1.25, 9.5, 0.78, -5.4);
+      add(g, 'woodDark', 0.6, 0.72, 0.9, 8.35, 0.36, -5.4);
+      add(g, 'woodDark', 0.6, 0.72, 0.9, 10.65, 0.36, -5.4);
+      add(g, 'fabric', 0.55, 1.1, 0.55, 9.5, 0.55, -7.0);
+      add(g, 'fabric', 0.55, 0.5, 0.12, 9.5, 0.95, -7.25);
+      add(g, 'fabricWarm', 3.0, 0.4, 0.95, 5.5, 0.24, -8.5);
+      add(g, 'fabricWarm', 3.0, 0.5, 0.22, 5.5, 0.62, -8.85);
+      add(g, 'woodDark', 0.4, 2.3, 6.4, 13.7, 1.15, -6.4);
+      for (let i = 0; i < 5; i++) add(g, 'metalDark', 0.42, 0.04, 6.4, 13.7, 0.4 + i * 0.45, -6.4);
+      for (let i = 0; i < 26; i++) add(g, ['white', 'fabricWarm', 'metalDark', 'wood'][i % 4], 0.03, 0.24, 0.18, 13.55, 0.55 + Math.floor(i / 5) * 0.45, -8.9 + (i % 5) * 0.9);
+      col(43, 8.0, -6.2, 11.0, -4.6, 0, 0.9);
+      col(43, 4.0, -9.0, 7.0, -8.1, 0, 0.6);
+      col(43, 13.4, -9.7, 14, -3.1, 0, 2.4);
+
+      // lounge + reception
+      add(g, 'fabricWarm', 3.0, 0.4, 0.95, -9.5, 0.24, 4.6);
+      add(g, 'fabricWarm', 3.0, 0.5, 0.22, -9.5, 0.62, 4.25);
+      add(g, 'woodDark', 1.8, 0.42, 0.8, -9.5, 0.23, 6.4);
+      add(g, 'marbleDark', 1.6, 0.9, 0.72, -1.5, 0.5, 7.4);
+      add(g, 'marble', 1.8, 0.08, 0.86, -1.5, 0.98, 7.4);
+      plant(g, -12.6, 8.4, 1.2);
+      plant(g, 12.4, 8.4, 1.2);
+      plant(g, -12.4, -1.6, 1.0);
+      col(43, -11.2, 4.0, -7.8, 5.2, 0, 0.55);
+      col(43, -10.6, 5.9, -8.4, 6.9, 0, 0.5);
+      col(43, -2.5, 6.8, -0.5, 8.0, 0, 1.05);
+
+      // ceiling light runs + practicals
+      for (const z of [-7.5, -4.2, 0.6, 4.4, 7.6]) add(g, 'light', 24.0, 0.06, 0.14, 0, 3.62, z);
+      const warm = (x, z, i) => {
+        const l = new THREE.PointLight(0xffe3bf, i, 14, 2);
+        l.position.set(x, 2.9, z);
+        g.add(l);
+      };
+      warm(-7, -5.6, 18); warm(8.5, -6.0, 16); warm(-8, 5.5, 15); warm(1.5, 7.0, 12); warm(9, 5.5, 12);
+
+      LV.floors[43] = {
+        baseY: baseY, name: '43F 董事会层', group: g,
+        spawn: { x: 0, z: 6.8, yaw: 0 },
+        rooms: [
+          { id: 'b43-lobby', name: '电梯厅', rect: { x1: -14, x2: 14, z1: 6, z2: 10 } },
+          { id: 'b43-lounge', name: '休息区', rect: { x1: -14, x2: 2, z1: 0, z2: 6 } },
+          { id: 'b43-board', name: '董事会', rect: { x1: -14, x2: 2, z1: -10, z2: 0 } },
+          { id: 'b43-chair', name: '董事长室', rect: { x1: 2, x2: 14, z1: -10, z2: -2 } },
+          { id: 'b43-hall', name: '走廊', rect: { x1: 2, x2: 14, z1: -2, z2: 6 } }
+        ]
+      };
+      LV.floorPlans[43] = LV.floors[43].rooms;
+      LV.floors[43].group.visible = false;
+    })();
+
+    /* ---------------- 41F · 安保与机房 ---------------- */
+    (function () {
+      const baseY = -12;
+      const g = new THREE.Group();
+      g.position.y = baseY;
+      g.visible = false;
+      scene.add(g);
+
+      add(g, 'concrete', 28.4, 0.3, 20.4, 0, -0.15, 0);
+      add(g, 'ceil', 28.4, 0.2, 20.4, 0, 3.22, 0);
+      add(g, 'plasterDark', 28.4, 3.3, 0.3, 0, 1.65, -10);
+      add(g, 'plasterDark', 28.4, 3.3, 0.3, 0, 1.65, 10);
+      add(g, 'plasterDark', 0.3, 3.3, 20.4, -14, 1.65, 0);
+      add(g, 'plasterDark', 0.3, 3.3, 20.4, 14, 1.65, 0);
+      add(g, 'glass', 0.06, 1.4, 6.0, -13.95, 1.9, 4.0);
+      col(41, -14, -10.2, 14, -9.8);
+      col(41, -14, 9.8, 14, 10.2);
+      col(41, -14.2, -10, -13.8, 10);
+      col(41, 13.8, -10, 14.2, 10);
+
+      // elevator bank
+      add(g, 'marbleDark', 10.0, 3.3, 0.26, -2.0, 1.65, 9.92);
+      add(g, 'metal', 2.1, 2.4, 0.12, -3.2, 1.2, 9.78);
+      add(g, 'metal', 2.1, 2.4, 0.12, 2.0, 1.2, 9.78);
+      add(g, 'metal', 2.1, 2.4, 0.12, 7.2, 1.2, 9.78);
+      for (const ex of [-3.2, 2.0, 7.2]) {
+        add(g, 'chrome', 2.3, 2.6, 0.05, ex, 1.3, 9.86);
+        add(g, 'alarm', 0.14, 0.14, 0.04, ex, 2.78, 9.84);
+      }
+      col(41, -8, 9.8, 3, 10.2);
+
+      // server racks
+      for (let r = 0; r < 2; r++) {
+        for (let c = 0; c < 4; c++) {
+          const x = -9 + c * 1.35, z = -6.5 + r * 3.0;
+          add(g, 'dark', 0.9, 2.0, 0.7, x, 1.0, z);
+          add(g, 'lightCool', 0.7, 0.05, 0.02, x, 1.55, z + 0.36);
+          add(g, 'alarm', 0.03, 0.03, 0.02, x + 0.3, 1.2, z + 0.36);
+          col(41, x - 0.5, z - 0.4, x + 0.5, z + 0.4, 0, 2.0);
+        }
+      }
+      // ops desk + monitors
+      add(g, 'woodDark', 5.0, 0.08, 0.9, 5.0, 0.76, -7.5);
+      add(g, 'metalDark', 4.6, 0.7, 0.7, 5.0, 0.35, -7.5);
+      for (let i = 0; i < 3; i++) {
+        add(g, 'dark', 0.7, 0.4, 0.05, 3.6 + i * 1.3, 1.15, -7.9);
+        add(g, 'screen', 0.64, 0.34, 0.02, 3.6 + i * 1.3, 1.15, -7.93);
+      }
+      col(41, 2.4, -8.0, 7.6, -7.0, 0, 0.85);
+      // lockers
+      for (let i = 0; i < 3; i++) {
+        add(g, 'metal', 0.9, 1.9, 0.5, 11.4, 0.95, -8.2 + i * 1.0);
+        add(g, 'chrome', 0.04, 0.4, 0.04, 11.0, 0.95, -8.2 + i * 1.0);
+      }
+      col(41, 10.9, -8.7, 11.9, -5.2, 0, 1.9);
+      // crates and console
+      add(g, 'dark', 1.2, 1.0, 1.2, -11.5, 0.5, 4.0);
+      add(g, 'alarm', 0.5, 0.06, 0.2, -11.5, 1.03, 4.0);
+      col(41, -12.2, 3.3, -10.8, 4.7, 0, 1.1);
+      add(g, 'marbleDark', 3.0, 0.9, 0.7, 7.0, 0.5, 6.5);
+      col(41, 5.5, 6.1, 8.5, 6.9, 0, 1.0);
+
+      for (const z of [-7, -2.5, 2.0, 6.5]) add(g, 'lightCool', 22.0, 0.06, 0.12, 0, 3.12, z);
+      const cool = (x, z, i) => {
+        const l = new THREE.PointLight(0xbfe4ff, i, 13, 2);
+        l.position.set(x, 2.8, z);
+        g.add(l);
+      };
+      cool(-6, -5, 14); cool(6, -5, 12); cool(0, 6, 12);
+
+      LV.floors[41] = {
+        baseY: baseY, name: '41F 安保机房', group: g,
+        spawn: { x: 0, z: 6.6, yaw: 0 },
+        rooms: [
+          { id: 'b41-ops', name: '安保机房', rect: { x1: -14, x2: 14, z1: -10, z2: 10 } }
+        ]
+      };
+      LV.floorPlans[41] = LV.floors[41].rooms;
+      LV.floors[41].group.visible = false;
+    })();
+
+    // floor-tagged pickups
+    LV.pickups.push({ kind: 'ammo', x: -5, z: 5.5, floor: 41 });
+    LV.pickups.push({ kind: 'health', x: 4.5, z: 5.5, floor: 41 });
+    LV.pickups.push({ kind: 'health', x: 5.5, z: 4.0, floor: 43 });
+    // boss now lives on 43F
+    LV.actors.boss.floor = 43;
+    LV.actors.boss.x = 9.5;
+    LV.actors.boss.z = -7.4;
+    LV.actors.boss.ry = 0;
   };
 
   global.LV = LV;
@@ -3559,7 +3806,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   // circle vs level AABBs; y is feet height, h body height
   Phys.blocked = function (x, z, r) {
     const y0 = 0.25, y1 = 1.7;
+    const fl = (global.GAME && global.GAME.floor) || 42;
     for (const c of LV.colliders) {
+      if ((c.floor || 42) !== fl) continue;
       if (c.y1 < y0 || c.y0 > y1) continue;
       if (x + r > c.x1 && x - r < c.x2 && z + r > c.z1 && z - r < c.z2) return c;
     }
@@ -3607,7 +3856,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   Phys.rayWalls = function (origin, dir, dist) {
     let best = null;
     const o = origin, d = dir;
+    const fl = (global.GAME && global.GAME.floor) || 42;
     for (const c of LV.colliders) {
+      if ((c.floor || 42) !== fl) continue;
       if (c.y0 > 2.6) continue;
       const h = rayBox(o.x, o.y, o.z, d.x, d.y, d.z, c, tmpHit);
       if (h && h.t > 0.02 && h.t <= dist && (!best || h.t < best.t)) {
@@ -3629,7 +3880,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     const len = Math.hypot(dx, dy, dz);
     if (len < 0.001) return true;
     const nx = dx / len, ny = dy / len, nz = dz / len;
+    const fl = (global.GAME && global.GAME.floor) || 42;
     for (const c of LV.colliders) {
+      if ((c.floor || 42) !== fl) continue;
       if (c.y1 < Math.min(ay, by) - 0.2) continue;
       if (c.y0 > Math.max(ay, by)) continue;
       if (c.y1 - c.y0 < 0.9 && c.y1 < 1.1) continue;      // low desks don't block sight fully
@@ -4495,7 +4748,11 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
   };
 
   /* ---------------------------------------------------------------- minimap */
-  H.buildMap = function () {
+  H.buildMap = function (floor) {
+    floor = floor || 42;
+    H.mapFloor = floor;
+    const title = document.getElementById('mapFloor');
+    if (title) title.textContent = floor + 'F · 平面图';
     const cv = document.getElementById('mapcv');
     if (!cv) return;
     H.mapCv = cv;
@@ -4517,6 +4774,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     // walls (colliders tall enough to be architecture)
     g.fillStyle = 'rgba(214,209,199,.6)';
     for (const c of LV.colliders) {
+      if ((c.floor || 42) !== floor) continue;
       if (c.y1 < 2.8) continue;
       const x = H.mapX(c.x1), y = H.mapY(c.z1);
       const w = Math.max(1, (c.x2 - c.x1) * s), h = Math.max(1, (c.z2 - c.z1) * s);
@@ -4530,23 +4788,29 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     H.mapAcc = 0;
   };
 
+  H.onFloorChange = function (floor) {
+    H.buildMap(floor);
+  };
+
   H.updateMap = function (dt, G) {
     const cv = H.mapCv, c = H.mapCtx;
     if (!cv || !c) return;
+    if (G.floor !== H.mapFloor) H.buildMap(G.floor);
     H.mapAcc += dt;
     if (H.mapAcc < 0.08) return;
     H.mapAcc = 0;
     const S = H.mapS;
     c.clearRect(0, 0, H.mapW, H.mapH);
+    const plan = (LV.floorPlans && LV.floorPlans[G.floor]) || [];
 
     // room fills
-    for (const r of LV.rooms) {
+    for (const r of plan) {
       const st = G.roomState[r.id];
-      if (!st) continue;
-      const known = st.discovered;
+      const known = G.floor !== 42 || (st && st.discovered);
+      const cleared = G.floor !== 42 || (st && st.cleared);
       const x = H.mapX(r.rect.x1), y = H.mapY(r.rect.z1);
       const w = (r.rect.x2 - r.rect.x1) * S, h = (r.rect.z2 - r.rect.z1) * S;
-      c.fillStyle = st.cleared ? 'rgba(255,179,71,.13)' : known ? 'rgba(255,179,71,.055)' : 'rgba(232,228,218,.015)';
+      c.fillStyle = cleared ? 'rgba(255,179,71,.13)' : known ? 'rgba(255,179,71,.055)' : 'rgba(232,228,218,.015)';
       c.fillRect(x, y, w, h);
     }
 
@@ -4556,16 +4820,18 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     const label = { lobby: '大堂', open: '大厅', meet: '会议', ceo: 'CEO', cfo: 'CFO', pantry: '茶水' };
     c.textAlign = 'center';
     c.textBaseline = 'middle';
-    for (const r of LV.rooms) {
+    for (const r of plan) {
       const st = G.roomState[r.id];
-      if (!st) continue;
+      const known = G.floor !== 42 || (st && st.discovered);
+      const cleared = G.floor !== 42 || (st && st.cleared);
+      const cx = (r.rect.x1 + r.rect.x2) / 2, cz = (r.rect.z1 + r.rect.z2) / 2;
       c.font = '600 15px "PingFang SC","Microsoft YaHei",sans-serif';
-      c.fillStyle = st.discovered ? (st.cleared ? 'rgba(255,179,71,.95)' : 'rgba(232,228,218,.78)') : 'rgba(232,228,218,.22)';
-      c.fillText(st.discovered ? (label[r.id] || r.name) : '未搜索', H.mapX(r.cx), H.mapY(r.cz));
+      c.fillStyle = known ? (cleared ? 'rgba(255,179,71,.95)' : 'rgba(232,228,218,.78)') : 'rgba(232,228,218,.22)';
+      c.fillText(known ? (label[r.id] || r.name) : '未搜索', H.mapX(cx), H.mapY(cz));
     }
 
     // hostages (known rooms only)
-    for (const h of (G.hostages || [])) {
+    if (G.floor === 42) for (const h of (G.hostages || [])) {
       if (h.freed) continue;
       const st = G.roomState[h.room];
       if (!st || !st.discovered) continue;
@@ -4575,7 +4841,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     }
 
     // robbers: only those already alerted / in combat
-    for (const rb of (G.robbers || [])) {
+    if (G.floor === 42) for (const rb of (G.robbers || [])) {
       if (rb.state === 3 || rb.state === 0) continue;
       const x = H.mapX(rb.pos.x), y = H.mapY(rb.pos.z);
       c.save(); c.translate(x, y); c.rotate(Math.PI / 4);
@@ -4585,7 +4851,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     }
 
     // dropped weapons
-    for (const d of (G.drops || [])) {
+    if (G.floor === 42) for (const d of (G.drops || [])) {
       if (d.taken) continue;
       const st = G.roomState[LV.roomAt(d.x, d.z) ? LV.roomAt(d.x, d.z).id : ''];
       if (!st || !st.discovered) continue;
@@ -4594,7 +4860,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     }
 
     // boss marker after the floor is clear
-    if (!G.bossFreed && G.robbersLeft === 0 && G.boss) {
+    if (G.floor === 43 && !G.bossFreed && G.robbersLeft === 0 && G.boss) {
       const x = H.mapX(G.boss.pos.x), y = H.mapY(G.boss.pos.z);
       c.save(); c.translate(x, y); c.rotate(Math.PI / 4);
       c.strokeStyle = '#ffd27a'; c.lineWidth = 2;
@@ -4783,19 +5049,22 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     const cam = G.camera;
     const v = new THREE.Vector3();
     const items = [];
-    if (!G.bossFreed) {
-      items.push({ x: LV.actors.boss.x, z: LV.actors.boss.z, label: '老板', cls: 'extract', y: 1.4 });
-    } else {
-      // extraction: the elevator
-      items.push({ x: 1.75, z: 20.6, label: '撤离', cls: 'extract', y: 1.4 });
+    if (G.floor === 43 && !G.bossFreed) {
+      items.push({ x: LV.actors.boss.x, z: LV.actors.boss.z, label: '老板', cls: 'extract', y: 13.4 });
     }
-    if (G.robbersLeft > 0) {
+    if (G.floor === 42 && G.robbersLeft > 0) {
       for (const id of H.roomOrder) {
         const st = G.roomState[id];
         if (st.total - st.killed <= 0) continue;
         const room = LV.rooms.find((r) => r.id === id);
         items.push({ x: room.cx, z: room.cz, label: room.name.slice(0, 4), cls: '', y: 1.6, count: st.total - st.killed });
       }
+    }
+    if (!G.bossFreed && G.robbersLeft === 0 && G.floor !== 43) {
+      items.push({ x: 7.2, z: G.floor === 42 ? 20.3 : 8.7, label: '43F', cls: 'extract', y: G.floor === 42 ? 1.5 : 1.5 - 12 });
+    }
+    if (G.floor === 41) {
+      items.push({ x: 2.0, z: 8.7, label: '42F', cls: '', y: 1.5 });
     }
 
     // reuse DOM nodes
@@ -4947,7 +5216,10 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     nades: 3,
     drops: [],
     checkpoint: null,
-    shake: 0
+    shake: 0,
+    floor: 42,
+    floorBaseY: 0,
+    traveling: false
   };
   global.GAME = G;
 
@@ -5134,11 +5406,14 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     boss = new Character(scene, 'boss', b.x, b.z, b.ry);
     boss.name = b.name; boss.role = b.role;
     boss.freed = false;
+    boss.floor = b.floor || 43;
+    boss.pos.y = LV.floors[boss.floor] ? LV.floors[boss.floor].baseY : 0;
+    boss.sync(0);
     scene.add(boss.rig.root);
 
     // pickups
     pickups = [];
-    const mkPickup = (kind, x, z) => {
+    const mkPickup = (kind, x, z, floor) => {
       const g = new THREE.Group();
       if (kind === 'ammo') {
         const m = new THREE.MeshStandardMaterial({ color: 0x3d4750, roughness: 0.55, metalness: 0.35 });
@@ -5167,11 +5442,12 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       }));
       ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02;
       g.add(ring);
-      g.position.set(x, 0, z);
+      const fl = floor || 42;
+      g.position.set(x, LV.floors[fl] ? LV.floors[fl].baseY : 0, z);
       scene.add(g);
-      pickups.push({ kind, x, z, mesh: g, ring, taken: false, t: Math.random() * 6.28 });
+      pickups.push({ kind, x, z, floor: fl, mesh: g, ring, taken: false, t: Math.random() * 6.28 });
     };
-    for (const p of LV.pickups) mkPickup(p.kind, p.x, p.z);
+    for (const p of LV.pickups) mkPickup(p.kind, p.x, p.z, p.floor || 42);
     G.pickups = pickups;
 
     G.robbers = robbers;
@@ -5481,7 +5757,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     player.bobY = Math.sin(player.bobT * 2) * bobAmt;
 
     // camera
-    camera.position.set(player.pos.x, player.pos.y + player.eyeH + player.bobY, player.pos.z);
+    camera.position.set(player.pos.x, G.floorBaseY + player.pos.y + player.eyeH + player.bobY, player.pos.z);
     camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
     // slight roll while strafing
     const rollTarget = -(input.move.x) * 0.018 - (keys.KeyD ? 0.02 : 0) + (keys.KeyA ? 0.02 : 0);
@@ -5504,12 +5780,12 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     weapon.moveAmount = U.clamp(speedNow / 6, 0, 1);
 
     // player room
-    const room = LV.roomAt(player.pos.x, player.pos.z);
+    const room = G.floor === 42 ? LV.roomAt(player.pos.x, player.pos.z) : null;
     G.playerRoom = room;
     if (room && HUD.lastLocRoom !== room.id) {
       HUD.lastLocRoom = room.id;
       onEnterRoom(room);
-    } else if (!room && HUD.lastLocRoom !== 'corridor') {
+    } else if (G.floor === 42 && !room && HUD.lastLocRoom !== 'corridor') {
       HUD.lastLocRoom = 'corridor';
       HUD.location('走廊', '42F · 海程中心');
     }
@@ -5702,8 +5978,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         else { g.vel.x *= -0.42; g.vel.z *= -0.42; }
       } else { g.pos.x = nx; g.pos.z = nz; }
       g.pos.y += g.vel.y * dt;
-      if (g.pos.y < 0.09) {
-        g.pos.y = 0.09;
+      const groundY = G.floorBaseY + 0.09;
+      if (g.pos.y < groundY) {
+        g.pos.y = groundY;
         g.vel.y = Math.abs(g.vel.y) * 0.22;
         g.vel.x *= 0.62; g.vel.z *= 0.62;   // carpet/stone friction
         if (Math.abs(g.vel.y) < 0.6) g.vel.y = 0;
@@ -5790,7 +6067,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     g.position.set(x, 0, z);
     g.rotation.y = U.rnd(0, 6.28);
     scene.add(g);
-    G.drops.push({ x, z, mesh: g, ring, kind: kind || 'rifle', taken: false, t: U.rnd(0, 6) });
+    G.drops.push({ x, z, floor: 42, mesh: g, ring, kind: kind || 'rifle', taken: false, t: U.rnd(0, 6) });
   }
 
   function updateDrops(dt) {
@@ -5800,6 +6077,46 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       d.ring.material.opacity = 0.26 + Math.sin(d.t * 1.5) * 0.12;
       d.ring.scale.setScalar(1 + Math.sin(d.t * 1.1) * 0.05);
     }
+  }
+
+  /* ============================================================== floors */
+  function elevatorPoints(floor) {
+    const z = floor === 42 ? 20.3 : 8.7;
+    const mk = (to) => {
+      const name = to === 41 ? '41F 安保机房' : to === 43 ? '43F 董事会层' : '42F 办公层';
+      return { to, x: to === 41 ? -3.2 : to === 43 ? 7.2 : 2.0, z, label: '乘电梯 · ' + name };
+    };
+    return [mk(41), mk(42), mk(43)].filter((e) => e.to !== floor);
+  }
+
+  function travelFloor(to) {
+    const f = LV.floors[to];
+    if (!f || G.traveling || to === G.floor) return;
+    G.traveling = true;
+    input.fireMouse = false; input.touchFire = false; input.padFire = false;
+    const fade = document.getElementById('fade');
+    if (fade) fade.classList.add('on');
+    if (SFX.radio) SFX.radio();
+    setTimeout(() => {
+      G.floor = to;
+      G.floorBaseY = f.baseY;
+      player.pos.set(f.spawn.x, 0, f.spawn.z);
+      player.yaw = f.spawn.yaw; player.pitch = 0;
+      player.vel.set(0, 0, 0);
+      // floor visibility + lights
+      for (const k in LV.floors) {
+        const fl = LV.floors[k];
+        if (fl.group) fl.group.visible = (+k === to);
+      }
+      scene.traverse((o) => {
+        if (o.isLight && o.userData && o.userData.floor) o.visible = (o.userData.floor === to);
+      });
+      HUD.lastLocRoom = null;
+      if (HUD.onFloorChange) HUD.onFloorChange(to);
+      HUD.location(f.name, `${to}F · 海程中心`);
+      if (fade) fade.classList.remove('on');
+      G.traveling = false;
+    }, 480);
   }
 
   /* ============================================================== damage */
@@ -5896,8 +6213,18 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       if (d < radius && d < bestD) { bestD = d; best = item; }
     };
 
-    // boss
-    if (!G.bossFreed) {
+    // elevators
+    const ep = elevatorPoints(G.floor);
+    for (const e of ep) {
+      consider(e.x, e.z, 1.7, {
+        kind: 'elevator', to: e.to,
+        label: e.to === 43 && G.robbersLeft > 0 ? '43F · 授权锁定' : e.label,
+        locked: e.to === 43 && G.robbersLeft > 0,
+        key: 'E', hold: false
+      });
+    }
+    // boss (43F only)
+    if (!G.bossFreed && G.floor === 43) {
       const ready = G.robbersLeft === 0;
       consider(boss.pos.x, boss.pos.z, 2.4, {
         kind: ready ? 'boss' : 'boss-blocked',
@@ -5906,18 +6233,20 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       });
     }
     // hostages
-    for (const h of hostages) {
+    if (G.floor === 42) for (const h of hostages) {
       if (h.freed) continue;
       consider(h.pos.x, h.pos.z, 1.8, { kind: 'hostage', hostage: h, label: '解开束缚', key: 'E', hold: true, holdTime: 1.5 });
     }
     // dropped weapons
     for (const dr of (G.drops || [])) {
       if (dr.taken) continue;
+      if ((dr.floor || 42) !== G.floor) continue;
       consider(dr.x, dr.z, 1.6, { kind: 'drop', drop: dr, label: '拾取 AK-74', key: 'E', hold: false });
     }
     // pickups
     for (const pk of pickups) {
       if (pk.taken) continue;
+      if ((pk.floor || 42) !== G.floor) continue;
       if (pk.kind === 'ammo' && weapon.reserve >= weapon.def.reserve) continue;
       if (pk.kind === 'health' && player.hp >= player.maxHp) continue;
       const d = Math.hypot(pk.x - p.x, pk.z - p.z);
@@ -5975,6 +6304,12 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       h.fleeTo = { x: 2.0, z: 19.6 };
       h.fleePath = LV.nav.path(h.pos.x, h.pos.z, h.fleeTo.x, h.fleeTo.z);
       h.fleeI = 0;
+    } else if (it.kind === 'elevator') {
+      if (it.locked) {
+        HUD.msg('43F 已锁定 · 先清剿 42F 的劫匪', 2.6);
+        return;
+      }
+      travelFloor(it.to);
     } else if (it.kind === 'drop') {
       const dr = it.drop;
       if (!dr || dr.taken) return;
@@ -6121,7 +6456,8 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     for (const p of pickups) {
       if (p.taken) continue;
       p.t += dt * 2.2;
-      p.mesh.position.y = Math.sin(p.t) * 0.02;
+      const baseY = (LV.floors[p.floor || 42] || {}).baseY || 0;
+      p.mesh.position.y = baseY + Math.sin(p.t) * 0.02;
       p.ring.material.opacity = 0.24 + Math.sin(p.t * 1.6) * 0.12;
       p.ring.scale.setScalar(1 + Math.sin(p.t * 1.2) * 0.04);
     }
@@ -6616,6 +6952,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       weapon.reset();
       G.checkpoint = null;
       G.droppedOnce = false;
+      G.floor = 42;
+      G.floorBaseY = 0;
+      player.pos.set(LV.spawn.x, 0, LV.spawn.z);
     } else {
       G.time = cp.time;
       G.robberKills = cp.kills;
@@ -6629,6 +6968,8 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
       weapon.setCurrent(cp.cur, true);
       G.droppedOnce = true;
       G.bossFreed = !!cp.bossFreed;
+      G.floor = cp.floor || 42;
+      G.floorBaseY = (LV.floors[G.floor] || {}).baseY || 0;
     }
     G.visited = {};
     G.ended = false;
@@ -6636,6 +6977,13 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     weapon.gun.visible = true;
     HUD.setWeapon(weapon);
     HUD.setNades(G.nades);
+    for (const k in LV.floors) {
+      const fl = LV.floors[k];
+      if (fl.group) fl.group.visible = (+k === G.floor);
+    }
+    scene.traverse((o) => {
+      if (o.isLight && o.userData && o.userData.floor) o.visible = (o.userData.floor === G.floor);
+    });
     HUD.lastLocRoom = null;
     HUD.el.hud.classList.add('on');
     HUD.location('前台大堂', 'RECEPTION · 42F 海程中心');
@@ -6689,6 +7037,8 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     for (const r of LV.rooms) r.total = 0;
     spawnActors(cp);
 
+    G.floor = cp ? (cp.floor || 42) : 42;
+    G.floorBaseY = (LV.floors[G.floor] || {}).baseY || 0;
     player.pos.set(cp ? cp.x : LV.spawn.x, 0, cp ? cp.z : LV.spawn.z);
     player.vel.set(0, 0, 0);
     player.yaw = cp ? cp.yaw : 0; player.pitch = cp ? cp.pitch : 0;
@@ -6712,7 +7062,7 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
     for (const id in G.roomState) seen[id] = G.roomState[id].discovered;
     G.checkpoint = {
       x: player.pos.x, z: player.pos.z, yaw: player.yaw, pitch: player.pitch,
-      hp: player.hp, nades: G.nades, time: G.time,
+      hp: player.hp, nades: G.nades, time: G.time, floor: G.floor,
       kills: G.robberKills, shots: G.shotsFired, hits: G.shotsHit,
       dead: LV.actors.robbers.map((d, i) => {
         const r = robbers.find((x) => x.defIndex === i);
